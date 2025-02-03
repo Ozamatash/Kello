@@ -4,12 +4,12 @@ import Combine
 
 @Observable
 class FeedViewModel {
-    private var modelContext: ModelContext
-    private var cancellables = Set<AnyCancellable>()
+    // MARK: - Properties
+    
+    private let modelContext: ModelContext
     private let firebaseService = FirebaseService.shared
     
     var recipes: [Recipe] = []
-    var currentIndex: Int = 0
     var isLoading = false
     var error: Error?
     
@@ -17,9 +17,13 @@ class FeedViewModel {
     var selectedCuisineType: String?
     var maxCookingTime: Int?
     
+    // MARK: - Initialization
+    
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
     }
+    
+    // MARK: - Public Methods
     
     @MainActor
     func loadInitialRecipes() async {
@@ -42,13 +46,11 @@ class FeedViewModel {
     @MainActor
     func loadMoreRecipes() async {
         guard !isLoading,
-              !recipes.isEmpty else { return }
+              let lastRecipe = recipes.last else { return }
         
         isLoading = true
         do {
-            let newRecipes = try await firebaseService.fetchMoreRecipes(
-                after: recipes.last!
-            )
+            let newRecipes = try await firebaseService.fetchMoreRecipes(after: lastRecipe)
             recipes.append(contentsOf: newRecipes)
             error = nil
         } catch {
@@ -59,32 +61,26 @@ class FeedViewModel {
     }
     
     func applyFilters(cuisineType: String?, maxTime: Int?) {
-        self.selectedCuisineType = cuisineType
-        self.maxCookingTime = maxTime
-        Task {
+        selectedCuisineType = cuisineType
+        maxCookingTime = maxTime
+        Task { @MainActor in
             await loadInitialRecipes()
         }
     }
     
-    func likeRecipe(at index: Int) {
+    @MainActor
+    func likeRecipe(at index: Int) async throws {
         guard index < recipes.count else { return }
         let recipe = recipes[index]
         
-        Task {
-            do {
-                try await firebaseService.likeRecipe(recipe.id)
-                // Update local state
-                await MainActor.run {
-                    recipes[index].likes += 1
-                }
-            } catch {
-                print("Error liking recipe: \(error)")
-            }
-        }
+        try await firebaseService.likeRecipe(recipe.id)
+        recipes[index].likes += 1
     }
     
     func shareRecipe(at index: Int) {
         guard index < recipes.count else { return }
-        // TODO: Implement share functionality using UIActivityViewController
+        let recipe = recipes[index]
+        // TODO: Implement share functionality
+        // This will be implemented when we add UIActivityViewController integration
     }
 } 

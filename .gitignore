@@ -99,6 +99,3 @@ GoogleService-Info.plist
 .vscode/
 *.swp
 *.swo 
-
-# Firebase
-GoogleService-Info.plist

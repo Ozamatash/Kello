@@ -12,7 +12,25 @@ import FirebaseCore
 @main
 struct KelloApp: App {
     init() {
-        FirebaseConfig.shared.configure()
+        FirebaseApp.configure()
+        
+        // Configure URL cache with larger capacity
+        let memoryCapacity = 100 * 1024 * 1024    // 100 MB memory cache
+        let diskCapacity = 500 * 1024 * 1024      // 500 MB disk cache
+        let cache = URLCache(memoryCapacity: memoryCapacity, diskCapacity: diskCapacity, diskPath: "video_cache")
+        URLCache.shared = cache
+        
+        // Register for memory warnings to clear memory cache if needed
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            URLCache.shared.removeAllCachedResponses()
+            print("🧹 Cleared URL cache due to memory warning")
+        }
+        
+        print("📦 URL Cache configured - Memory: \(ByteCountFormatter.string(fromByteCount: Int64(memoryCapacity), countStyle: .file)), Disk: \(ByteCountFormatter.string(fromByteCount: Int64(diskCapacity), countStyle: .file))")
     }
     
     var sharedModelContainer: ModelContainer = {

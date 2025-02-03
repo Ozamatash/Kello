@@ -9,6 +9,52 @@ class PopulateTestData {
     
     private init() {}
     
+    private func uploadTestVideos() async throws -> [String] {
+        let testVideoURLs = [
+            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", 
+            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", 
+            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4"
+        ]
+        
+        var downloadURLs: [String] = []
+        
+        for (index, videoURL) in testVideoURLs.enumerated() {
+            do {
+                let storageRef = storage.reference().child("videos/test-video-\(index + 1).mp4")
+                print("📦 Created storage reference: \(storageRef)")
+                
+                print("🔗 Using test video URL: \(videoURL)")
+                
+                guard let url = URL(string: videoURL) else {
+                    throw NSError(domain: "PopulateTestData", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
+                }
+                
+                print("⬇️ Downloading video \(index + 1) data...")
+                guard let videoData = try? Data(contentsOf: url) else {
+                    throw NSError(domain: "PopulateTestData", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to download video data"])
+                }
+                print("✅ Video data downloaded: \(ByteCountFormatter.string(fromByteCount: Int64(videoData.count), countStyle: .file))")
+                
+                print("⬆️ Starting upload to Firebase Storage...")
+                let metadata = StorageMetadata()
+                metadata.contentType = "video/mp4"
+                _ = try await storageRef.putDataAsync(videoData, metadata: metadata)
+                print("✅ Upload completed")
+                
+                print("🔗 Getting download URL...")
+                let downloadURL = try await storageRef.downloadURL()
+                print("✅ Got download URL: \(downloadURL.absoluteString)")
+                
+                downloadURLs.append(downloadURL.absoluteString)
+            } catch {
+                print("❌ Upload error for video \(index + 1): \(error)")
+                throw error
+            }
+        }
+        
+        return downloadURLs
+    }
+    
     // Simple function to populate test data
     static func populateTestData() {
         Task {
@@ -19,15 +65,14 @@ class PopulateTestData {
                 try await shared.clearDatabase()
                 print("✅ Database cleared")
                 
-                // Upload test video and get URL
-                print("📤 Starting video upload...")
-                let videoURL = try await shared.uploadTestVideo()
-                print("✅ Test video uploaded successfully")
-                print("📍 Video URL: \(videoURL)")
+                // Upload test videos and get URLs
+                print("📤 Starting video uploads...")
+                let videoURLs = try await shared.uploadTestVideos()
+                print("✅ Test videos uploaded successfully")
                 
                 // Then populate with test data
                 print("📝 Populating database with recipes...")
-                try await shared.populateDatabase(withVideoURL: videoURL)
+                try await shared.populateDatabase(withVideoURLs: videoURLs)
                 
                 print("✅ Database population completed!")
             } catch {
@@ -40,50 +85,7 @@ class PopulateTestData {
         }
     }
     
-    private func uploadTestVideo() async throws -> String {
-        do {
-            // Reference to test video in storage
-            let storageRef = storage.reference().child("videos/test-video.mp4")
-            print("📦 Created storage reference: \(storageRef)")
-            
-            // URL of a small test video (Creative Commons license)
-            let testVideoURL = "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
-            print("🔗 Using test video URL: \(testVideoURL)")
-            
-            // Download the video data
-            guard let url = URL(string: testVideoURL) else {
-                throw NSError(domain: "PopulateTestData", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
-            }
-            
-            print("⬇️ Downloading video data...")
-            guard let videoData = try? Data(contentsOf: url) else {
-                throw NSError(domain: "PopulateTestData", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to download video data"])
-            }
-            print("✅ Video data downloaded: \(ByteCountFormatter.string(fromByteCount: Int64(videoData.count), countStyle: .file))")
-            
-            // Upload to Firebase Storage
-            print("⬆️ Starting upload to Firebase Storage...")
-            let metadata = StorageMetadata()
-            metadata.contentType = "video/mp4"
-            _ = try await storageRef.putDataAsync(videoData, metadata: metadata)
-            print("✅ Upload completed")
-            
-            // Get the download URL
-            print("🔗 Getting download URL...")
-            let downloadURL = try await storageRef.downloadURL()
-            print("✅ Got download URL: \(downloadURL.absoluteString)")
-            
-            return downloadURL.absoluteString
-        } catch {
-            print("❌ Upload error: \(error)")
-            throw error
-        }
-    }
-    
-    func populateDatabase(withVideoURL videoURL: String) async throws {
-        // Sample cuisine types
-        let cuisineTypes = ["Italian", "Japanese", "Mexican", "Indian", "Chinese", "American", "French", "Thai"]
-        
+    func populateDatabase(withVideoURLs videoURLs: [String]) async throws {
         // Sample recipe data
         let testRecipes: [[String: Any]] = [
             [
@@ -94,7 +96,7 @@ class PopulateTestData {
                 "cuisineType": "Italian",
                 "ingredients": ["Spaghetti", "Eggs", "Pancetta", "Parmesan", "Black Pepper"],
                 "steps": ["Boil pasta", "Cook pancetta", "Mix eggs and cheese", "Combine all"],
-                "videoURL": videoURL,
+                "videoURL": videoURLs[0],
                 "thumbnailURL": "https://example.com/carbonara.jpg",
                 "calories": 650,
                 "protein": 25.0,
@@ -107,6 +109,7 @@ class PopulateTestData {
                 "shares": 0
             ],
             [
+                "id": UUID().uuidString,
                 "title": "15-Minute Chicken Stir Fry",
                 "description": "A quick and healthy Asian-inspired stir fry with colorful vegetables.",
                 "cookingTime": 15,
@@ -128,21 +131,20 @@ class PopulateTestData {
                     "Add vegetables and sauce",
                     "Cook until vegetables are crisp-tender"
                 ],
-                "videoURL": "https://example.com/stirfry.mp4",
+                "videoURL": videoURLs[1],
                 "thumbnailURL": "https://example.com/stirfry-thumb.jpg",
                 "createdAt": FieldValue.serverTimestamp(),
                 "updatedAt": FieldValue.serverTimestamp(),
                 "likes": 0,
                 "comments": 0,
                 "shares": 0,
-                "nutritionalInfo": [
-                    "calories": 380,
-                    "protein": 42.0,
-                    "carbs": 18.5,
-                    "fat": 15.2
-                ]
+                "calories": 380,
+                "protein": 42.0,
+                "carbs": 18.5,
+                "fat": 15.2
             ],
             [
+                "id": UUID().uuidString,
                 "title": "5-Minute Breakfast Smoothie",
                 "description": "A nutritious and quick breakfast smoothie packed with fruits and protein.",
                 "cookingTime": 5,
@@ -161,19 +163,17 @@ class PopulateTestData {
                     "Pour into glass",
                     "Top with extra berries if desired"
                 ],
-                "videoURL": "https://example.com/smoothie.mp4",
+                "videoURL": videoURLs[2],
                 "thumbnailURL": "https://example.com/smoothie-thumb.jpg",
                 "createdAt": FieldValue.serverTimestamp(),
                 "updatedAt": FieldValue.serverTimestamp(),
                 "likes": 0,
                 "comments": 0,
                 "shares": 0,
-                "nutritionalInfo": [
-                    "calories": 285,
-                    "protein": 15.5,
-                    "carbs": 45.0,
-                    "fat": 8.2
-                ]
+                "calories": 285,
+                "protein": 15.5,
+                "carbs": 45.0,
+                "fat": 8.2
             ]
         ]
         
