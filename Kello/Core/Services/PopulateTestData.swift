@@ -1,9 +1,11 @@
 import Foundation
 import FirebaseFirestore
+import FirebaseStorage
 
 class PopulateTestData {
     static let shared = PopulateTestData()
     private let firestore = FirebaseConfig.shared.firestore
+    private let storage = FirebaseConfig.shared.storage
     
     private init() {}
     
@@ -15,58 +17,94 @@ class PopulateTestData {
                 
                 // First clear the database
                 try await shared.clearDatabase()
+                print("✅ Database cleared")
+                
+                // Upload test video and get URL
+                print("📤 Starting video upload...")
+                let videoURL = try await shared.uploadTestVideo()
+                print("✅ Test video uploaded successfully")
+                print("📍 Video URL: \(videoURL)")
                 
                 // Then populate with test data
-                try await shared.populateDatabase()
+                print("📝 Populating database with recipes...")
+                try await shared.populateDatabase(withVideoURL: videoURL)
                 
                 print("✅ Database population completed!")
             } catch {
                 print("❌ Error populating database: \(error)")
+                if let storageError = error as? StorageError {
+                    print("📦 Storage Error Details: \(storageError)")
+                }
+                print("🔍 Full Error: \(String(describing: error))")
             }
         }
     }
     
-    func populateDatabase() async throws {
+    private func uploadTestVideo() async throws -> String {
+        do {
+            // Reference to test video in storage
+            let storageRef = storage.reference().child("videos/test-video.mp4")
+            print("📦 Created storage reference: \(storageRef)")
+            
+            // URL of a small test video (Creative Commons license)
+            let testVideoURL = "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+            print("🔗 Using test video URL: \(testVideoURL)")
+            
+            // Download the video data
+            guard let url = URL(string: testVideoURL) else {
+                throw NSError(domain: "PopulateTestData", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
+            }
+            
+            print("⬇️ Downloading video data...")
+            guard let videoData = try? Data(contentsOf: url) else {
+                throw NSError(domain: "PopulateTestData", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to download video data"])
+            }
+            print("✅ Video data downloaded: \(ByteCountFormatter.string(fromByteCount: Int64(videoData.count), countStyle: .file))")
+            
+            // Upload to Firebase Storage
+            print("⬆️ Starting upload to Firebase Storage...")
+            let metadata = StorageMetadata()
+            metadata.contentType = "video/mp4"
+            _ = try await storageRef.putDataAsync(videoData, metadata: metadata)
+            print("✅ Upload completed")
+            
+            // Get the download URL
+            print("🔗 Getting download URL...")
+            let downloadURL = try await storageRef.downloadURL()
+            print("✅ Got download URL: \(downloadURL.absoluteString)")
+            
+            return downloadURL.absoluteString
+        } catch {
+            print("❌ Upload error: \(error)")
+            throw error
+        }
+    }
+    
+    func populateDatabase(withVideoURL videoURL: String) async throws {
         // Sample cuisine types
         let cuisineTypes = ["Italian", "Japanese", "Mexican", "Indian", "Chinese", "American", "French", "Thai"]
         
         // Sample recipe data
-        let recipes = [
+        let testRecipes: [[String: Any]] = [
             [
-                "title": "Quick Spaghetti Carbonara",
-                "description": "A classic Italian pasta dish made with eggs, cheese, pancetta, and black pepper.",
-                "cookingTime": 20,
+                "id": UUID().uuidString,
+                "title": "Classic Carbonara",
+                "description": "A creamy Italian pasta dish with eggs and pancetta",
+                "cookingTime": 25,
                 "cuisineType": "Italian",
-                "ingredients": [
-                    "400g spaghetti",
-                    "200g pancetta or guanciale",
-                    "4 large eggs",
-                    "100g Pecorino Romano",
-                    "100g Parmigiano Reggiano",
-                    "Black pepper",
-                    "Salt"
-                ],
-                "steps": [
-                    "Bring a large pot of salted water to boil",
-                    "Cook spaghetti according to package instructions",
-                    "Meanwhile, cook pancetta until crispy",
-                    "Mix eggs, cheese, and pepper in a bowl",
-                    "Combine pasta with egg mixture and pancetta",
-                    "Serve immediately with extra cheese and pepper"
-                ],
-                "videoURL": "https://example.com/carbonara.mp4",
-                "thumbnailURL": "https://example.com/carbonara-thumb.jpg",
+                "ingredients": ["Spaghetti", "Eggs", "Pancetta", "Parmesan", "Black Pepper"],
+                "steps": ["Boil pasta", "Cook pancetta", "Mix eggs and cheese", "Combine all"],
+                "videoURL": videoURL,
+                "thumbnailURL": "https://example.com/carbonara.jpg",
+                "calories": 650,
+                "protein": 25.0,
+                "carbs": 70.0,
+                "fat": 30.0,
                 "createdAt": FieldValue.serverTimestamp(),
                 "updatedAt": FieldValue.serverTimestamp(),
                 "likes": 0,
                 "comments": 0,
-                "shares": 0,
-                "nutritionalInfo": [
-                    "calories": 650,
-                    "protein": 28.5,
-                    "carbs": 72.0,
-                    "fat": 25.8
-                ]
+                "shares": 0
             ],
             [
                 "title": "15-Minute Chicken Stir Fry",
@@ -140,7 +178,7 @@ class PopulateTestData {
         ]
         
         // Add recipes to Firestore
-        for recipe in recipes {
+        for recipe in testRecipes {
             try await firestore.collection("recipes").addDocument(data: recipe)
         }
         

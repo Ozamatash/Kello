@@ -29,7 +29,7 @@ struct FeedView: View {
                             id: \.element.id
                         ) { index, recipe in
                             VideoCard(recipe: recipe)
-                                .frame(width: geometry.size.width, height: geometry.size.height)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 .offset(y: calculateOffset(for: index, geometry: geometry))
                                 .gesture(
                                     DragGesture()
@@ -43,9 +43,6 @@ struct FeedView: View {
                         }
                     }
                 }
-            }
-            .safeAreaInset(edge: .bottom) {
-                Color.clear.frame(height: 49) // Height of tab bar
             }
         }
         .onChange(of: currentIndex) { oldValue, newValue in
@@ -90,13 +87,8 @@ struct VideoCard: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // Background
-                Color.gray
-                    .overlay {
-                        // TODO: Implement video player
-                        Text("Video Placeholder")
-                            .foregroundColor(.white.opacity(0.5))
-                    }
+                // Video Player
+                VideoPlayerView(videoURL: recipe.videoURL)
                 
                 // Content overlay
                 VStack(spacing: 0) {
@@ -151,8 +143,11 @@ struct VideoCard: View {
                         )
                     )
                 }
+                .safeAreaInset(edge: .bottom) {
+                    Color.clear.frame(height: 0)
+                }
             }
         }
-        .ignoresSafeArea()
+        .ignoresSafeArea(.all, edges: [.horizontal, .top])
     }
 } 

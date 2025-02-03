@@ -27,16 +27,18 @@ struct ContentView: View {
                 .tabItem {
                     Label("Profile", systemImage: "person.circle")
                 }
-        }
-        .overlay(alignment: .topTrailing) {
-            // Temporary button to populate database
+            
+            #if DEBUG
+            // Debug controls - only visible in debug builds
             Button(action: {
                 PopulateTestData.populateTestData()
             }) {
-                Image(systemName: "plus.circle.fill")
-                    .font(.title)
-                    .padding()
+                Text("Reset Data")
             }
+            .tabItem {
+                Label("Test Data", systemImage: "gear")
+            }
+            #endif
         }
     }
 }
