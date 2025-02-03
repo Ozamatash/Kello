@@ -6,6 +6,17 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		869A08FC2D51464100A4DA36 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 869A08FB2D51464100A4DA36 /* FirebaseAuth */; };
+		869A08FE2D51464100A4DA36 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 869A08FD2D51464100A4DA36 /* FirebaseCore */; };
+		869A09002D51464100A4DA36 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 869A08FF2D51464100A4DA36 /* FirebaseStorage */; };
+		869A09022D51467300A4DA36 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 869A09012D51467300A4DA36 /* FirebaseFirestore */; };
+		86ABC53E2D513B6500DFDE6D /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 86ABC53D2D513B6500DFDE6D /* FirebaseAuth */; };
+		86ABC5402D513B6500DFDE6D /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 86ABC53F2D513B6500DFDE6D /* FirebaseFirestore */; };
+		86ABC5422D513B6500DFDE6D /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 86ABC5412D513B6500DFDE6D /* FirebaseStorage */; };
+		86ABC5442D513EFB00DFDE6D /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 86ABC5432D513EFB00DFDE6D /* GoogleService-Info.plist */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		86ABC4E62D51269500DFDE6D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -23,15 +34,42 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		869A08EF2D51443700A4DA36 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		869A08F12D51443700A4DA36 /* PopulateDB */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = PopulateDB; sourceTree = BUILT_PRODUCTS_DIR; };
 		86ABC4D32D51269300DFDE6D /* Kello.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Kello.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		86ABC4E52D51269500DFDE6D /* KelloTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KelloTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		86ABC4EF2D51269500DFDE6D /* KelloUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KelloUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		86ABC5432D513EFB00DFDE6D /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		869A09082D5146F400A4DA36 /* Exceptions for "Kello" folder in "PopulateDB" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				App/FirebaseConfig.swift,
+			);
+			target = 869A08F02D51443700A4DA36 /* PopulateDB */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		86ABC4D52D51269300DFDE6D /* Kello */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				869A09082D5146F400A4DA36 /* Exceptions for "Kello" folder in "PopulateDB" target */,
+			);
 			path = Kello;
 			sourceTree = "<group>";
 		};
@@ -48,10 +86,24 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		869A08EE2D51443700A4DA36 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				869A08FE2D51464100A4DA36 /* FirebaseCore in Frameworks */,
+				869A09022D51467300A4DA36 /* FirebaseFirestore in Frameworks */,
+				869A08FC2D51464100A4DA36 /* FirebaseAuth in Frameworks */,
+				869A09002D51464100A4DA36 /* FirebaseStorage in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		86ABC4D02D51269300DFDE6D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				86ABC53E2D513B6500DFDE6D /* FirebaseAuth in Frameworks */,
+				86ABC5402D513B6500DFDE6D /* FirebaseFirestore in Frameworks */,
+				86ABC5422D513B6500DFDE6D /* FirebaseStorage in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -75,6 +127,7 @@
 		86ABC4CA2D51269300DFDE6D = {
 			isa = PBXGroup;
 			children = (
+				86ABC5432D513EFB00DFDE6D /* GoogleService-Info.plist */,
 				86ABC4D52D51269300DFDE6D /* Kello */,
 				86ABC4E82D51269500DFDE6D /* KelloTests */,
 				86ABC4F22D51269500DFDE6D /* KelloUITests */,
@@ -88,6 +141,7 @@
 				86ABC4D32D51269300DFDE6D /* Kello.app */,
 				86ABC4E52D51269500DFDE6D /* KelloTests.xctest */,
 				86ABC4EF2D51269500DFDE6D /* KelloUITests.xctest */,
+				869A08F12D51443700A4DA36 /* PopulateDB */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -95,6 +149,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		869A08F02D51443700A4DA36 /* PopulateDB */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 869A08F72D51443700A4DA36 /* Build configuration list for PBXNativeTarget "PopulateDB" */;
+			buildPhases = (
+				869A08ED2D51443700A4DA36 /* Sources */,
+				869A08EE2D51443700A4DA36 /* Frameworks */,
+				869A08EF2D51443700A4DA36 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PopulateDB;
+			packageProductDependencies = (
+				869A08FB2D51464100A4DA36 /* FirebaseAuth */,
+				869A08FD2D51464100A4DA36 /* FirebaseCore */,
+				869A08FF2D51464100A4DA36 /* FirebaseStorage */,
+				869A09012D51467300A4DA36 /* FirebaseFirestore */,
+			);
+			productName = PopulateDB;
+			productReference = 869A08F12D51443700A4DA36 /* PopulateDB */;
+			productType = "com.apple.product-type.tool";
+		};
 		86ABC4D22D51269300DFDE6D /* Kello */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 86ABC4F92D51269500DFDE6D /* Build configuration list for PBXNativeTarget "Kello" */;
@@ -112,6 +189,9 @@
 			);
 			name = Kello;
 			packageProductDependencies = (
+				86ABC53D2D513B6500DFDE6D /* FirebaseAuth */,
+				86ABC53F2D513B6500DFDE6D /* FirebaseFirestore */,
+				86ABC5412D513B6500DFDE6D /* FirebaseStorage */,
 			);
 			productName = Kello;
 			productReference = 86ABC4D32D51269300DFDE6D /* Kello.app */;
@@ -173,6 +253,9 @@
 				LastSwiftUpdateCheck = 1620;
 				LastUpgradeCheck = 1620;
 				TargetAttributes = {
+					869A08F02D51443700A4DA36 = {
+						CreatedOnToolsVersion = 16.2;
+					};
 					86ABC4D22D51269300DFDE6D = {
 						CreatedOnToolsVersion = 16.2;
 					};
@@ -195,6 +278,9 @@
 			);
 			mainGroup = 86ABC4CA2D51269300DFDE6D;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				86ABC53C2D513B6500DFDE6D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 86ABC4D42D51269300DFDE6D /* Products */;
 			projectDirPath = "";
@@ -203,6 +289,7 @@
 				86ABC4D22D51269300DFDE6D /* Kello */,
 				86ABC4E42D51269500DFDE6D /* KelloTests */,
 				86ABC4EE2D51269500DFDE6D /* KelloUITests */,
+				869A08F02D51443700A4DA36 /* PopulateDB */,
 			);
 		};
 /* End PBXProject section */
@@ -212,6 +299,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				86ABC5442D513EFB00DFDE6D /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -232,6 +320,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		869A08ED2D51443700A4DA36 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		86ABC4CF2D51269300DFDE6D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -269,6 +364,28 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		869A08F52D51443700A4DA36 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		869A08F62D51443700A4DA36 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 		86ABC4F72D51269500DFDE6D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -515,6 +632,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		869A08F72D51443700A4DA36 /* Build configuration list for PBXNativeTarget "PopulateDB" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				869A08F52D51443700A4DA36 /* Debug */,
+				869A08F62D51443700A4DA36 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		86ABC4CE2D51269300DFDE6D /* Build configuration list for PBXProject "Kello" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -552,6 +678,55 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		86ABC53C2D513B6500DFDE6D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.8.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		869A08FB2D51464100A4DA36 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 86ABC53C2D513B6500DFDE6D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		869A08FD2D51464100A4DA36 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 86ABC53C2D513B6500DFDE6D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		869A08FF2D51464100A4DA36 /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 86ABC53C2D513B6500DFDE6D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
+		869A09012D51467300A4DA36 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 86ABC53C2D513B6500DFDE6D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		86ABC53D2D513B6500DFDE6D /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 86ABC53C2D513B6500DFDE6D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		86ABC53F2D513B6500DFDE6D /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 86ABC53C2D513B6500DFDE6D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		86ABC5412D513B6500DFDE6D /* FirebaseStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 86ABC53C2D513B6500DFDE6D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseStorage;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 86ABC4CB2D51269300DFDE6D /* Project object */;
 }
