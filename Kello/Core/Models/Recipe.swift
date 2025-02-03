@@ -5,7 +5,7 @@ import SwiftData
 class Recipe {
     var id: String
     var title: String
-    var description: String
+    var recipeDescription: String
     var cookingTime: Int // in minutes
     var cuisineType: String
     var ingredients: [String]
@@ -41,7 +41,7 @@ class Recipe {
          fat: Double? = nil) {
         self.id = id
         self.title = title
-        self.description = description
+        self.recipeDescription = description
         self.cookingTime = cookingTime
         self.cuisineType = cuisineType
         self.ingredients = ingredients

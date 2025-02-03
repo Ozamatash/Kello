@@ -29,6 +29,7 @@ struct FeedView: View {
                             id: \.element.id
                         ) { index, recipe in
                             VideoCard(recipe: recipe)
+                                .frame(width: geometry.size.width, height: geometry.size.height)
                                 .offset(y: calculateOffset(for: index, geometry: geometry))
                                 .gesture(
                                     DragGesture()
@@ -43,11 +44,19 @@ struct FeedView: View {
                     }
                 }
             }
+            .safeAreaInset(edge: .bottom) {
+                Color.clear.frame(height: 49) // Height of tab bar
+            }
         }
         .onChange(of: currentIndex) { oldValue, newValue in
             if newValue >= viewModel.recipes.count - 2 {
-                viewModel.loadMoreRecipes()
+                Task {
+                    await viewModel.loadMoreRecipes()
+                }
             }
+        }
+        .task {
+            await viewModel.loadInitialRecipes()
         }
     }
     
@@ -79,42 +88,71 @@ struct VideoCard: View {
     let recipe: Recipe
     
     var body: some View {
-        ZStack {
-            // TODO: Implement video player
-            // For now, just show a placeholder
-            Color.gray
-            
-            VStack {
-                Spacer()
-                
-                // Recipe info overlay
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(recipe.title)
-                        .font(.title2)
-                        .bold()
-                    
-                    Text(recipe.description)
-                        .font(.subheadline)
-                    
-                    HStack {
-                        Label("\(recipe.cookingTime) min", systemImage: "clock")
-                        Spacer()
-                        Label("\(recipe.likes)", systemImage: "heart")
-                        Label("\(recipe.comments)", systemImage: "message")
-                        Label("\(recipe.shares)", systemImage: "square.and.arrow.up")
+        GeometryReader { geometry in
+            ZStack {
+                // Background
+                Color.gray
+                    .overlay {
+                        // TODO: Implement video player
+                        Text("Video Placeholder")
+                            .foregroundColor(.white.opacity(0.5))
                     }
-                    .font(.caption)
-                }
-                .padding()
-                .background(
-                    LinearGradient(
-                        gradient: Gradient(colors: [.clear, .black.opacity(0.7)]),
-                        startPoint: .top,
-                        endPoint: .bottom
+                
+                // Content overlay
+                VStack(spacing: 0) {
+                    Spacer()
+                    
+                    // Recipe info overlay
+                    VStack(alignment: .leading, spacing: 12) {
+                        // Title and description
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(recipe.title)
+                                .font(.title2)
+                                .bold()
+                                .foregroundColor(.white)
+                            
+                            Text(recipe.recipeDescription)
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.9))
+                                .lineLimit(2)
+                        }
+                        
+                        // Cooking info
+                        HStack(spacing: 16) {
+                            Label("\(recipe.cookingTime) min", systemImage: "clock")
+                            Label(recipe.cuisineType, systemImage: "fork.knife")
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.9))
+                        
+                        // Engagement metrics
+                        HStack(spacing: 20) {
+                            Label("\(recipe.likes)", systemImage: "heart.fill")
+                                .foregroundColor(.red)
+                            Label("\(recipe.comments)", systemImage: "message.fill")
+                                .foregroundColor(.blue)
+                            Label("\(recipe.shares)", systemImage: "square.and.arrow.up")
+                                .foregroundColor(.green)
+                            Spacer()
+                        }
+                        .font(.callout)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+                    .background(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                .clear,
+                                .black.opacity(0.3),
+                                .black.opacity(0.8)
+                            ]),
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
                     )
-                )
+                }
             }
         }
-        .edgesIgnoringSafeArea(.all)
+        .ignoresSafeArea()
     }
 } 

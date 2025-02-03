@@ -28,6 +28,16 @@ struct ContentView: View {
                     Label("Profile", systemImage: "person.circle")
                 }
         }
+        .overlay(alignment: .topTrailing) {
+            // Temporary button to populate database
+            Button(action: {
+                PopulateTestData.populateTestData()
+            }) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.title)
+                    .padding()
+            }
+        }
     }
 }
 
