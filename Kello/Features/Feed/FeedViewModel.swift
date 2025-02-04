@@ -14,8 +14,8 @@ class FeedViewModel {
     var error: Error?
     
     // Filters
-    var selectedCuisineType: String?
-    var maxCookingTime: Int?
+    var selectedTimeFilter: CookingTimeFilter?
+    var selectedCuisine: String?
     
     // MARK: - Initialization
     
@@ -29,12 +29,14 @@ class FeedViewModel {
     func loadInitialRecipes() async {
         guard !isLoading else { return }
         
+        print("DEBUG: Loading initial recipes with filters - timeFilter: \(String(describing: selectedTimeFilter)), cuisine: \(String(describing: selectedCuisine))")
         isLoading = true
         do {
-            recipes = try await firebaseService.fetchRecipes(
-                cuisineType: selectedCuisineType,
-                maxCookingTime: maxCookingTime
+            recipes = try await firebaseService.filterRecipes(
+                timeFilter: selectedTimeFilter,
+                cuisine: selectedCuisine
             )
+            print("DEBUG: Loaded \(recipes.count) recipes")
             error = nil
         } catch {
             self.error = error
@@ -50,7 +52,11 @@ class FeedViewModel {
         
         isLoading = true
         do {
-            let newRecipes = try await firebaseService.fetchMoreRecipes(after: lastRecipe)
+            let newRecipes = try await firebaseService.filterMoreRecipes(
+                after: lastRecipe,
+                timeFilter: selectedTimeFilter,
+                cuisine: selectedCuisine
+            )
             recipes.append(contentsOf: newRecipes)
             error = nil
         } catch {
@@ -60,9 +66,10 @@ class FeedViewModel {
         isLoading = false
     }
     
-    func applyFilters(cuisineType: String?, maxTime: Int?) {
-        selectedCuisineType = cuisineType
-        maxCookingTime = maxTime
+    func applyFilters(timeFilter: CookingTimeFilter?, cuisine: String?) {
+        print("DEBUG: Applying filters - timeFilter: \(String(describing: timeFilter)), cuisine: \(String(describing: cuisine))")
+        selectedTimeFilter = timeFilter
+        selectedCuisine = cuisine
         Task { @MainActor in
             await loadInitialRecipes()
         }

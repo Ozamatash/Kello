@@ -2,21 +2,53 @@ import SwiftUI
 
 struct SearchView: View {
     @StateObject private var viewModel = SearchViewModel()
-    @State private var searchText = ""
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                // Search Bar
-                searchBar
-                    .padding()
-                
-                // Filter Chips
-                ScrollView(.horizontal, showsIndicators: false) {
-                    filterChips
+            VStack(spacing: 16) {
+                // Time Filters Section
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Cooking Time")
+                        .font(.headline)
                         .padding(.horizontal)
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(CookingTimeFilter.allCases) { filter in
+                                FilterChip(
+                                    title: filter.displayText,
+                                    isSelected: viewModel.selectedTimeFilter == filter
+                                ) {
+                                    viewModel.selectTimeFilter(filter)
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
                 }
-                .padding(.vertical, 8)
+                
+                // Cuisine Filters Section
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Cuisine Type")
+                        .font(.headline)
+                        .padding(.horizontal)
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(viewModel.availableCuisines, id: \.self) { cuisine in
+                                FilterChip(
+                                    title: cuisine,
+                                    isSelected: viewModel.selectedCuisine == cuisine
+                                ) {
+                                    viewModel.selectCuisine(cuisine)
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                }
+                
+                Divider()
                 
                 // Results
                 if viewModel.isLoading {
@@ -28,60 +60,16 @@ struct SearchView: View {
                     searchResults
                 }
             }
-            .navigationTitle("Search")
+            .navigationTitle("Discover")
             .navigationBarTitleDisplayMode(.large)
-        }
-    }
-    
-    private var searchBar: some View {
-        HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(.gray)
-            
-            TextField("Search recipes, ingredients...", text: $searchText)
-                .textFieldStyle(PlainTextFieldStyle())
-                .onChange(of: searchText) { oldValue, newValue in
-                    viewModel.search(query: newValue)
-                }
-            
-            if !searchText.isEmpty {
-                Button(action: {
-                    searchText = ""
-                    viewModel.clearSearch()
-                }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.gray)
-                }
-            }
-        }
-        .padding(10)
-        .background(Color(.systemGray6))
-        .cornerRadius(10)
-    }
-    
-    private var filterChips: some View {
-        HStack(spacing: 8) {
-            // Time Filters
-            ForEach(CookingTimeFilter.allCases) { filter in
-                FilterChip(
-                    title: filter.displayText,
-                    isSelected: viewModel.selectedTimeFilter == filter
-                ) {
-                    viewModel.selectTimeFilter(filter)
-                }
-            }
-            
-            Divider()
-                .frame(height: 24)
-                .padding(.horizontal, 4)
-            
-            // Cuisine Filters
-            ForEach(viewModel.availableCuisines, id: \.self) { cuisine in
-                FilterChip(
-                    title: cuisine,
-                    isSelected: viewModel.selectedCuisine == cuisine
-                ) {
-                    viewModel.selectCuisine(cuisine)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    if viewModel.hasActiveFilters {
+                        Button("Clear All") {
+                            viewModel.clearFilters()
+                        }
+                        .foregroundColor(.accentColor)
+                    }
                 }
             }
         }
@@ -111,23 +99,15 @@ struct SearchView: View {
     
     private var emptyState: some View {
         VStack(spacing: 16) {
-            Image(systemName: "magnifyingglass")
+            Image(systemName: "fork.knife")
                 .font(.system(size: 48))
                 .foregroundColor(.gray)
             
-            if searchText.isEmpty {
-                Text("Search for recipes")
-                    .font(.headline)
-                Text("Try searching for recipes or ingredients")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
-            } else {
-                Text("No recipes found")
-                    .font(.headline)
-                Text("Try different keywords or filters")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
-            }
+            Text("No recipes found")
+                .font(.headline)
+            Text("Try different filters")
+                .font(.subheadline)
+                .foregroundColor(.gray)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

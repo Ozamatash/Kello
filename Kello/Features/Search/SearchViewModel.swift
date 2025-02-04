@@ -40,8 +40,8 @@ class SearchViewModel: ObservableObject {
     // MARK: - Properties
     
     private let firebaseService = FirebaseService.shared
-    private var searchTask: Task<Void, Never>?
-    @Published var currentQuery = ""
+    private var loadingTask: Task<Void, Never>?
+    private var hasReachedEnd = false
     
     @Published var recipes: [Recipe] = []
     @Published var isLoading = false
@@ -55,75 +55,106 @@ class SearchViewModel: ObservableObject {
         "Thai", "French", "American", "Mediterranean"
     ]
     
-    // MARK: - Search Methods
-    
-    func search(query: String) {
-        currentQuery = query
-        executeSearch()
+    var hasActiveFilters: Bool {
+        selectedTimeFilter != nil || selectedCuisine != nil
     }
     
-    private func executeSearch() {
-        // Cancel any existing search task
-        searchTask?.cancel()
-        
-        // Create a new search task with debounce
-        searchTask = Task {
-            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 second debounce
-            
-            guard !Task.isCancelled else { return }
-            
-            await performSearch(query: currentQuery)
-        }
-    }
-    
-    @MainActor
-    private func performSearch(query: String) async {
-        isLoading = true
-        do {
-            recipes = try await firebaseService.searchRecipes(
-                query: query,
-                timeFilter: selectedTimeFilter,
-                cuisine: selectedCuisine
-            )
-            error = nil
-        } catch {
-            self.error = error
-            print("Search error: \(error)")
-        }
-        isLoading = false
-    }
-    
-    func clearSearch() {
-        currentQuery = ""
-        recipes = []
-        error = nil
-        selectedTimeFilter = nil
-        selectedCuisine = nil
+    init() {
+        print("DEBUG: SearchViewModel initialized")
+        // Load initial recipes when view model is created
+        reloadRecipes()
     }
     
     // MARK: - Filter Methods
     
     func selectTimeFilter(_ filter: CookingTimeFilter) {
+        print("DEBUG: Time filter selected - \(filter.displayText)")
         if selectedTimeFilter == filter {
             selectedTimeFilter = nil
+            print("DEBUG: Time filter cleared")
         } else {
             selectedTimeFilter = filter
+            print("DEBUG: Time filter set to \(filter.displayText)")
         }
-        executeSearch()
+        resetAndReload()
     }
     
     func selectCuisine(_ cuisine: String) {
+        print("DEBUG: Cuisine filter selected - \(cuisine)")
         if selectedCuisine == cuisine {
             selectedCuisine = nil
+            print("DEBUG: Cuisine filter cleared")
         } else {
             selectedCuisine = cuisine
+            print("DEBUG: Cuisine filter set to \(cuisine)")
         }
-        executeSearch()
+        resetAndReload()
+    }
+    
+    func clearFilters() {
+        print("DEBUG: Clearing all filters")
+        selectedTimeFilter = nil
+        selectedCuisine = nil
+        resetAndReload()
+    }
+    
+    // MARK: - Data Loading
+    
+    private func resetAndReload() {
+        recipes = []
+        hasReachedEnd = false
+        reloadRecipes()
+    }
+    
+    private func reloadRecipes() {
+        // Cancel any existing loading task
+        loadingTask?.cancel()
+        
+        // Create a new loading task
+        loadingTask = Task { @MainActor in
+            // Add a small delay to debounce rapid filter changes
+            try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+            
+            // Check if the task was cancelled during the delay
+            if Task.isCancelled { return }
+            
+            await loadRecipes()
+        }
+    }
+    
+    @MainActor
+    private func loadRecipes() async {
+        guard !isLoading else { return }
+        
+        print("DEBUG: Loading recipes with filters - Time: \(String(describing: selectedTimeFilter?.displayText)), Cuisine: \(String(describing: selectedCuisine))")
+        isLoading = true
+        do {
+            let filteredRecipes = try await firebaseService.filterRecipes(
+                timeFilter: selectedTimeFilter,
+                cuisine: selectedCuisine
+            )
+            recipes = filteredRecipes
+            hasReachedEnd = filteredRecipes.isEmpty
+            print("DEBUG: Loaded \(recipes.count) recipes")
+            if !recipes.isEmpty {
+                print("DEBUG: Sample recipe - title: \(recipes[0].title), cuisine: \(recipes[0].cuisineType), time: \(recipes[0].cookingTime)")
+            }
+            error = nil
+        } catch {
+            self.error = error
+            print("ERROR: Failed to load recipes - \(error)")
+        }
+        isLoading = false
     }
     
     // MARK: - Pagination
     
     func loadMore() {
+        guard !hasReachedEnd else {
+            print("DEBUG: Reached end of list, no more recipes to load")
+            return
+        }
+        
         Task {
             await loadMoreResults()
         }
@@ -131,17 +162,24 @@ class SearchViewModel: ObservableObject {
     
     @MainActor
     private func loadMoreResults() async {
-        guard !isLoading,
+        guard !isLoading && !hasReachedEnd,
               let lastRecipe = recipes.last else { return }
         
         isLoading = true
         do {
-            let newRecipes = try await firebaseService.searchMoreRecipes(
+            let newRecipes = try await firebaseService.filterMoreRecipes(
                 after: lastRecipe,
                 timeFilter: selectedTimeFilter,
                 cuisine: selectedCuisine
             )
-            recipes.append(contentsOf: newRecipes)
+            
+            if newRecipes.isEmpty {
+                hasReachedEnd = true
+                print("DEBUG: No more recipes to load")
+            } else {
+                recipes.append(contentsOf: newRecipes)
+                print("DEBUG: Loaded \(newRecipes.count) more recipes")
+            }
             error = nil
         } catch {
             self.error = error
