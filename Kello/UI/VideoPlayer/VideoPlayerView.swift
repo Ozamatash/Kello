@@ -5,16 +5,31 @@ import AVFoundation
 struct VideoPlayerView: View {
     let videoURL: String
     let isVisible: Bool
-    
-    @StateObject private var playerManager = VideoPlayerManager.shared
     @State private var player: AVPlayer?
-    @State private var loadError: Error?
+    @State private var isLoading = true
+    @State private var error: Error?
+    
+    // Add debug logging
+    private func logPlayerStatus() {
+        guard let player = player, let currentItem = player.currentItem else { return }
+        
+        print("=== Video Player Debug Info ===")
+        print("URL: \(videoURL)")
+        print("Player Status: \(player.status.rawValue)")
+        print("Item Status: \(currentItem.status.rawValue)")
+        print("Item Duration: \(currentItem.duration.seconds)")
+        print("Item Tracks: \(currentItem.tracks.count)")
+        if let error = currentItem.error {
+            print("Item Error: \(error)")
+        }
+        print("===========================")
+    }
     
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                if let error = loadError ?? playerManager.error {
-                    VStack(spacing: 12) {
+                if let error = error {
+                    VStack {
                         Image(systemName: "exclamationmark.triangle")
                             .font(.largeTitle)
                             .foregroundColor(.white)
@@ -25,27 +40,12 @@ struct VideoPlayerView: View {
                             .foregroundColor(.white.opacity(0.7))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
-                        Button("Retry") {
-                            Task {
-                                await loadPlayer()
-                            }
-                        }
-                        .foregroundColor(.white)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 16)
-                        .background(Color.white.opacity(0.2))
-                        .cornerRadius(8)
                     }
                 } else if let player = player {
                     PlayerContainerView(player: player)
                         .frame(width: geometry.size.width, height: geometry.size.height)
                         .edgesIgnoringSafeArea(.all)
-                        .onAppear {
-                            if isVisible {
-                                player.play()
-                            }
-                        }
-                } else if playerManager.isLoading {
+                } else if isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                 }
@@ -53,47 +53,159 @@ struct VideoPlayerView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.black)
         }
-        .task {
-            await loadPlayer()
+        .onAppear {
+            setupAudioSession()
+            setupPlayer()
+        }
+        .onDisappear {
+            cleanup()
         }
         .onChange(of: isVisible) { oldValue, newValue in
-            playerManager.handleVisibilityChange(for: videoURL, isVisible: newValue)
-            if newValue, let player = player {
-                player.play()
-            }
+            handleVisibilityChange(isVisible: newValue)
         }
     }
     
-    private func loadPlayer() async {
+    private func setupAudioSession() {
         do {
-            loadError = nil
-            player = try await playerManager.player(for: videoURL, isVisible: isVisible)
-            if isVisible {
-                player?.play()
-            }
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+            try AVAudioSession.sharedInstance().setActive(true)
         } catch {
-            loadError = error
+            print("Failed to set up audio session: \(error)")
         }
     }
-}
-
-struct PlayerContainerView: UIViewControllerRepresentable {
-    let player: AVPlayer
     
-    func makeUIViewController(context: Context) -> PlayerContainerViewController {
-        PlayerContainerViewController(player: player)
+    private func handleVisibilityChange(isVisible: Bool) {
+        guard let player = player else { return }
+        
+        if isVisible {
+            // Reset the player item when becoming visible
+            if player.currentItem?.status == .failed {
+                replacePlayerItem()
+            }
+            player.seek(to: .zero)
+            player.volume = 1.0
+            player.play()
+        } else {
+            player.pause()
+            player.volume = 0.0
+        }
     }
     
-    func updateUIViewController(_ uiViewController: PlayerContainerViewController, context: Context) {
-        uiViewController.updatePlayer(player)
+    private func replacePlayerItem() {
+        guard let player = player,
+              let currentItem = player.currentItem,
+              let asset = currentItem.asset as? AVURLAsset else { return }
+        
+        // Create a new player item with the same asset
+        let newPlayerItem = AVPlayerItem(asset: asset)
+        player.replaceCurrentItem(with: newPlayerItem)
+    }
+    
+    private func createPlayer(from urlString: String) async throws -> AVPlayer {
+        guard let url = URL(string: urlString) else {
+            throw NSError(domain: "VideoPlayerError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
+        }
+        
+        // Create a cacheable request
+        var request = URLRequest(url: url)
+        request.cachePolicy = .returnCacheDataElseLoad
+        request.timeoutInterval = 30
+        
+        // Check if we have cached data
+        if let cachedResponse = URLCache.shared.cachedResponse(for: request) {
+            print("📦 Using cached video data: \(ByteCountFormatter.string(fromByteCount: Int64(cachedResponse.data.count), countStyle: .file))")
+        } else {
+            print("🌐 No cached data available, loading from network")
+        }
+        
+        // Create session configuration with caching
+        let configuration = URLSessionConfiguration.default
+        configuration.requestCachePolicy = .returnCacheDataElseLoad
+        configuration.urlCache = URLCache.shared
+        
+        // Load the data with caching
+        let session = URLSession(configuration: configuration)
+        let (data, response) = try await session.data(for: request)
+        
+        // Cache the response if it's not already cached
+        if URLCache.shared.cachedResponse(for: request) == nil {
+            let cachedResponse = CachedURLResponse(
+                response: response,
+                data: data,
+                storagePolicy: .allowed
+            )
+            URLCache.shared.storeCachedResponse(cachedResponse, for: request)
+            print("💾 Cached video data: \(ByteCountFormatter.string(fromByteCount: Int64(data.count), countStyle: .file))")
+        }
+        
+        // Create a temporary file to store the video data
+        let tempDirectory = FileManager.default.temporaryDirectory
+        let tempFileURL = tempDirectory.appendingPathComponent(UUID().uuidString + ".mp4")
+        try data.write(to: tempFileURL)
+        
+        // Create asset from the temporary file
+        let asset = AVURLAsset(url: tempFileURL)
+        
+        // Preload essential properties
+        await asset.loadValues(forKeys: ["playable", "duration"])
+        
+        let playerItem = AVPlayerItem(asset: asset)
+        playerItem.preferredForwardBufferDuration = 10
+        
+        return AVPlayer(playerItem: playerItem)
+    }
+    
+    private func setupPlayer() {
+        Task {
+            do {
+                let player = try await createPlayer(from: videoURL)
+                player.volume = isVisible ? 1.0 : 0.0
+                
+                await MainActor.run {
+                    self.player = player
+                    if isVisible {
+                        player.play()
+                    }
+                    isLoading = false
+                }
+            } catch {
+                print("❌ Player setup error: \(error)")
+                await MainActor.run {
+                    self.error = error
+                    isLoading = false
+                }
+            }
+        }
+    }
+    
+    private func cleanup() {
+        player?.pause()
+        
+        // Clean up temporary files if they exist
+        if let playerItem = player?.currentItem,
+           let asset = playerItem.asset as? AVURLAsset {
+            try? FileManager.default.removeItem(at: asset.url)
+        }
+        
+        // Properly cleanup audio session
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        } catch {
+            print("Failed to deactivate audio session: \(error)")
+        }
+        
+        NotificationCenter.default.removeObserver(self)
+        player = nil
     }
 }
 
+// Player container to handle KVO
 final class PlayerContainerViewController: UIViewController {
     private var player: AVPlayer
     private var playerLayer: AVPlayerLayer?
-    private var isLayouting = false
     private var timeObserver: Any?
+    private var statusObserver: NSKeyValueObservation?
+    private var loadedTimeRangesObserver: NSKeyValueObservation?
     
     init(player: AVPlayer) {
         self.player = player
@@ -106,31 +218,14 @@ final class PlayerContainerViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        view.backgroundColor = .black
         setupPlayer()
-    }
-    
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        player.play()
+        setupObservers()
     }
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        
-        guard !isLayouting else { return }
-        isLayouting = true
-        defer { isLayouting = false }
-        
-        if playerLayer?.frame != view.bounds {
-            playerLayer?.frame = view.bounds
-        }
-    }
-    
-    func updatePlayer(_ newPlayer: AVPlayer) {
-        guard newPlayer !== player else { return }
-        player = newPlayer
-        playerLayer?.player = newPlayer
-        player.play()
+        playerLayer?.frame = view.bounds
     }
     
     private func setupPlayer() {
@@ -140,51 +235,83 @@ final class PlayerContainerViewController: UIViewController {
         view.layer.addSublayer(playerLayer)
         self.playerLayer = playerLayer
         
-        view.backgroundColor = .black
+        // Ensure the layer is visible
         view.layer.masksToBounds = true
         playerLayer.opacity = 1.0
         
-        player.play()
+        // Enable background video loading
+        player.currentItem?.canUseNetworkResourcesForLiveStreamingWhilePaused = true
         
-        timeObserver = player.addPeriodicTimeObserver(
-            forInterval: CMTime(seconds: 0.5, preferredTimescale: CMTimeScale(NSEC_PER_SEC)),
+        // Loop video
+        NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: player.currentItem,
             queue: .main
-        ) { [weak self] time in
-            if self?.player.rate == 0 {
-                self?.player.play()
+        ) { [weak self] _ in
+            self?.player.seek(to: .zero)
+            self?.player.play()
+        }
+    }
+    
+    private func setupObservers() {
+        // Observe player item status
+        statusObserver = player.currentItem?.observe(\.status, options: [.new, .old]) { [weak self] playerItem, change in
+            switch playerItem.status {
+            case .failed:
+                if let error = playerItem.error {
+                    print("Player item failed: \(error)")
+                }
+            case .readyToPlay:
+                print("Player item ready to play")
+                // Only play if the player should be playing
+                if self?.player.rate != 0 {
+                    self?.player.play()
+                }
+            case .unknown:
+                print("Player item status unknown")
+            @unknown default:
+                break
             }
         }
         
-        player.currentItem?.addObserver(self, forKeyPath: #keyPath(AVPlayerItem.status), options: [.old, .new], context: nil)
-    }
-    
-    override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
-        if keyPath == #keyPath(AVPlayerItem.status) {
-            let status: AVPlayerItem.Status
-            if let statusNumber = change?[.newKey] as? NSNumber {
-                status = AVPlayerItem.Status(rawValue: statusNumber.intValue)!
-            } else {
-                status = .unknown
-            }
-            
-            if status == .readyToPlay {
-                player.play()
-            }
+        // Observe loaded time ranges to monitor buffering
+        loadedTimeRangesObserver = player.currentItem?.observe(\.loadedTimeRanges) { [weak self] item, _ in
+            guard let timeRange = item.loadedTimeRanges.first?.timeRangeValue else { return }
+            let bufferedDuration = timeRange.duration.seconds
+            let bufferedStart = timeRange.start.seconds
+            print("Buffered from \(bufferedStart)s to \(bufferedStart + bufferedDuration)s")
         }
     }
     
-    deinit {
-        player.currentItem?.removeObserver(self, forKeyPath: #keyPath(AVPlayerItem.status))
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        statusObserver?.invalidate()
+        loadedTimeRangesObserver?.invalidate()
         if let timeObserver = timeObserver {
             player.removeTimeObserver(timeObserver)
         }
-        playerLayer?.removeFromSuperlayer()
-        playerLayer = nil
+        NotificationCenter.default.removeObserver(self)
     }
 }
 
-#Preview {
-    VideoPlayerView(videoURL: "https://example.com/sample.mp4", isVisible: true)
-        .frame(height: 400)
-        .background(Color.black)
+// Bridge between SwiftUI and UIKit
+struct PlayerContainerView: UIViewControllerRepresentable {
+    let player: AVPlayer
+    
+    func makeUIViewController(context: Context) -> PlayerContainerViewController {
+        return PlayerContainerViewController(player: player)
+    }
+    
+    func updateUIViewController(_ uiViewController: PlayerContainerViewController, context: Context) {
+        // Update if needed
+    }
+}
+
+// Preview provider for development
+struct VideoPlayerView_Previews: PreviewProvider {
+    static var previews: some View {
+        VideoPlayerView(videoURL: "https://example.com/sample.mp4", isVisible: true)
+            .frame(height: 400)
+            .background(Color.black)
+    }
 } 
