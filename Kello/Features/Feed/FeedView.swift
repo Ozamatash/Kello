@@ -105,15 +105,17 @@ struct FeedView: View {
     }
     
     private func handleSwipe(_ value: DragGesture.Value) {
-        let verticalThreshold = UIScreen.main.bounds.height * 0.3
-        let swipeDistance = value.translation.height
+        // Lower the threshold to 15% of the screen height.
+        let verticalThreshold = UIScreen.main.bounds.height * 0.15
+        // Consider the predicted end translation for a more responsive feel.
+        let predictedSwipeDistance = value.predictedEndTranslation.height
+
+        guard abs(predictedSwipeDistance) > verticalThreshold else { return }
         
-        guard abs(swipeDistance) > verticalThreshold else { return }
-        
-        withAnimation {
-            if swipeDistance < 0 && currentIndex < viewModel.recipes.count - 1 {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.75, blendDuration: 0.5)) {
+            if predictedSwipeDistance < 0 && currentIndex < viewModel.recipes.count - 1 {
                 currentIndex += 1
-            } else if swipeDistance > 0 && currentIndex > 0 {
+            } else if predictedSwipeDistance > 0 && currentIndex > 0 {
                 currentIndex -= 1
             }
         }
