@@ -10,10 +10,14 @@ class PopulateTestData {
     private init() {}
     
     private func uploadTestVideos() async throws -> [String] {
+        // More test videos from the public domain
         let testVideoURLs = [
-            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", 
-            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", 
-            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4"
+            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4",
+            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4"
         ]
         
         var downloadURLs: [String] = []
@@ -86,96 +90,8 @@ class PopulateTestData {
     }
     
     func populateDatabase(withVideoURLs videoURLs: [String]) async throws {
-        // Sample recipe data
-        let testRecipes: [[String: Any]] = [
-            [
-                "id": UUID().uuidString,
-                "title": "Classic Carbonara",
-                "description": "A creamy Italian pasta dish with eggs and pancetta",
-                "cookingTime": 25,
-                "cuisineType": "Italian",
-                "ingredients": ["Spaghetti", "Eggs", "Pancetta", "Parmesan", "Black Pepper"],
-                "steps": ["Boil pasta", "Cook pancetta", "Mix eggs and cheese", "Combine all"],
-                "videoURL": videoURLs[0],
-                "thumbnailURL": "https://example.com/carbonara.jpg",
-                "calories": 650,
-                "protein": 25.0,
-                "carbs": 70.0,
-                "fat": 30.0,
-                "createdAt": FieldValue.serverTimestamp(),
-                "updatedAt": FieldValue.serverTimestamp(),
-                "likes": 0,
-                "comments": 0,
-                "shares": 0
-            ],
-            [
-                "id": UUID().uuidString,
-                "title": "15-Minute Chicken Stir Fry",
-                "description": "A quick and healthy Asian-inspired stir fry with colorful vegetables.",
-                "cookingTime": 15,
-                "cuisineType": "Chinese",
-                "ingredients": [
-                    "500g chicken breast",
-                    "2 bell peppers",
-                    "1 broccoli head",
-                    "2 carrots",
-                    "4 tbsp soy sauce",
-                    "2 tbsp sesame oil",
-                    "Ginger and garlic"
-                ],
-                "steps": [
-                    "Cut chicken into bite-sized pieces",
-                    "Chop all vegetables",
-                    "Heat oil in a wok",
-                    "Stir-fry chicken until golden",
-                    "Add vegetables and sauce",
-                    "Cook until vegetables are crisp-tender"
-                ],
-                "videoURL": videoURLs[1],
-                "thumbnailURL": "https://example.com/stirfry-thumb.jpg",
-                "createdAt": FieldValue.serverTimestamp(),
-                "updatedAt": FieldValue.serverTimestamp(),
-                "likes": 0,
-                "comments": 0,
-                "shares": 0,
-                "calories": 380,
-                "protein": 42.0,
-                "carbs": 18.5,
-                "fat": 15.2
-            ],
-            [
-                "id": UUID().uuidString,
-                "title": "5-Minute Breakfast Smoothie",
-                "description": "A nutritious and quick breakfast smoothie packed with fruits and protein.",
-                "cookingTime": 5,
-                "cuisineType": "American",
-                "ingredients": [
-                    "1 banana",
-                    "1 cup mixed berries",
-                    "1 cup Greek yogurt",
-                    "1 tbsp honey",
-                    "1 cup almond milk",
-                    "1 tbsp chia seeds"
-                ],
-                "steps": [
-                    "Add all ingredients to blender",
-                    "Blend until smooth",
-                    "Pour into glass",
-                    "Top with extra berries if desired"
-                ],
-                "videoURL": videoURLs[2],
-                "thumbnailURL": "https://example.com/smoothie-thumb.jpg",
-                "createdAt": FieldValue.serverTimestamp(),
-                "updatedAt": FieldValue.serverTimestamp(),
-                "likes": 0,
-                "comments": 0,
-                "shares": 0,
-                "calories": 285,
-                "protein": 15.5,
-                "carbs": 45.0,
-                "fat": 8.2
-            ]
-        ]
+        // Generate 30 recipes (10 of each type)
+        let testRecipes = RecipeDataGenerator.generateBatch(count: 30, videoURLs: videoURLs)
         
         // Add recipes to Firestore
         for recipe in testRecipes {

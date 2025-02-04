@@ -173,4 +173,138 @@ class FirebaseService {
             )
         }
     }
+    
+    // MARK: - Search Operations
+    
+    func searchRecipes(
+        query: String,
+        timeFilter: CookingTimeFilter? = nil,
+        cuisine: String? = nil,
+        limit: Int = 20
+    ) async throws -> [Recipe] {
+        // Start with the base collection reference
+        let baseQuery = config.firestore.collection("recipes")
+        
+        // Build the query
+        var finalQuery: Query = baseQuery
+        
+        // Order by createdAt first (this should be part of the base query)
+        finalQuery = finalQuery.order(by: "createdAt", descending: true)
+        
+        // Apply time filter first (if any)
+        if let timeFilter = timeFilter {
+            let range = timeFilter.range
+            // For extended time, we only need the lower bound
+            if timeFilter == .extended {
+                finalQuery = finalQuery.whereField("cookingTime", isGreaterThanOrEqualTo: range.min)
+            } else {
+                finalQuery = finalQuery
+                    .whereField("cookingTime", isGreaterThanOrEqualTo: range.min)
+                    .whereField("cookingTime", isLessThan: range.max)
+            }
+        }
+        
+        // Apply cuisine filter (equality filter can be combined with range filters)
+        if let cuisine = cuisine {
+            finalQuery = finalQuery.whereField("cuisineType", isEqualTo: cuisine)
+        }
+        
+        // Apply text search if query is not empty
+        if !query.isEmpty {
+            finalQuery = finalQuery
+                .whereField("title", isGreaterThanOrEqualTo: query)
+                .whereField("title", isLessThanOrEqualTo: query + "\u{f8ff}")
+        }
+        
+        // Get documents
+        let snapshot = try await finalQuery
+            .limit(to: limit)
+            .getDocuments()
+        
+        return try snapshot.documents.compactMap { document in
+            let data = document.data()
+            return try decodeRecipe(from: data, withId: document.documentID)
+        }
+    }
+    
+    func searchMoreRecipes(
+        after lastRecipe: Recipe,
+        timeFilter: CookingTimeFilter? = nil,
+        cuisine: String? = nil,
+        limit: Int = 20
+    ) async throws -> [Recipe] {
+        // Start with the base collection reference
+        let baseQuery = config.firestore.collection("recipes")
+        
+        // Build the query starting with the order
+        var finalQuery: Query = baseQuery.order(by: "createdAt", descending: true)
+        
+        // Add the cursor
+        finalQuery = finalQuery.whereField("createdAt", isLessThan: lastRecipe.createdAt)
+        
+        // Apply time filter first (if any)
+        if let timeFilter = timeFilter {
+            let range = timeFilter.range
+            // For extended time, we only need the lower bound
+            if timeFilter == .extended {
+                finalQuery = finalQuery.whereField("cookingTime", isGreaterThanOrEqualTo: range.min)
+            } else {
+                finalQuery = finalQuery
+                    .whereField("cookingTime", isGreaterThanOrEqualTo: range.min)
+                    .whereField("cookingTime", isLessThan: range.max)
+            }
+        }
+        
+        // Apply cuisine filter
+        if let cuisine = cuisine {
+            finalQuery = finalQuery.whereField("cuisineType", isEqualTo: cuisine)
+        }
+        
+        // Get documents
+        let snapshot = try await finalQuery
+            .limit(to: limit)
+            .getDocuments()
+        
+        return try snapshot.documents.compactMap { document in
+            let data = document.data()
+            return try decodeRecipe(from: data, withId: document.documentID)
+        }
+    }
+    
+    // Helper method to decode recipe from Firestore data
+    private func decodeRecipe(from data: [String: Any], withId id: String) throws -> Recipe {
+        let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
+        let updatedAt = (data["updatedAt"] as? Timestamp)?.dateValue() ?? Date()
+        
+        let recipe = Recipe(
+            id: id,
+            title: data["title"] as? String ?? "",
+            description: data["description"] as? String ?? "",
+            cookingTime: data["cookingTime"] as? Int ?? 0,
+            cuisineType: data["cuisineType"] as? String ?? "",
+            ingredients: data["ingredients"] as? [String] ?? [],
+            steps: data["steps"] as? [String] ?? [],
+            videoURL: data["videoURL"] as? String ?? "",
+            thumbnailURL: data["thumbnailURL"] as? String ?? ""
+        )
+        
+        // Set timestamps
+        recipe.createdAt = createdAt
+        recipe.updatedAt = updatedAt
+        
+        // Set engagement metrics
+        recipe.likes = data["likes"] as? Int ?? 0
+        recipe.comments = data["comments"] as? Int ?? 0
+        recipe.shares = data["shares"] as? Int ?? 0
+        
+        // Set nutritional info
+        if let nutritionalInfo = data["nutritionalInfo"] as? [String: Any] {
+            recipe.calories = nutritionalInfo["calories"] as? Int
+            recipe.protein = nutritionalInfo["protein"] as? Double
+            recipe.carbs = nutritionalInfo["carbs"] as? Double
+            recipe.fat = nutritionalInfo["fat"] as? Double
+        }
+        
+        return recipe
+    }
 } 

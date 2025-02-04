@@ -18,7 +18,7 @@ struct ContentView: View {
                     Label("Feed", systemImage: "play.circle.fill")
                 }
             
-            Text("Search")
+            SearchView()
                 .tabItem {
                     Label("Search", systemImage: "magnifyingglass")
                 }

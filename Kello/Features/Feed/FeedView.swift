@@ -19,10 +19,26 @@ struct FeedView: View {
             }
         }
         .onChange(of: currentIndex) { oldValue, newValue in
+            // Ensure currentIndex stays within bounds
+            if viewModel.recipes.isEmpty {
+                currentIndex = 0
+            } else {
+                currentIndex = min(max(0, newValue), viewModel.recipes.count - 1)
+            }
+            
+            // Load more if needed
             if newValue >= viewModel.recipes.count - 2 {
                 Task {
                     await viewModel.loadMoreRecipes()
                 }
+            }
+        }
+        .onChange(of: viewModel.recipes.count) { oldValue, newValue in
+            // Ensure currentIndex is valid when recipes array changes
+            if newValue == 0 {
+                currentIndex = 0
+            } else if currentIndex >= newValue {
+                currentIndex = newValue - 1
             }
         }
         .task {
@@ -46,11 +62,11 @@ struct FeedView: View {
     private var videoCardsStack: some View {
         ZStack {
             ForEach(
-                Array(viewModel.recipes.enumerated().prefix(3)),
-                id: \.element.id
-            ) { index, recipe in
+                visibleIndices,
+                id: \.self
+            ) { index in
                 VideoCard(
-                    recipe: recipe,
+                    recipe: viewModel.recipes[index],
                     isVisible: index == currentIndex
                 )
                 .offset(y: calculateOffset(for: index))
@@ -58,6 +74,20 @@ struct FeedView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    private var visibleIndices: [Int] {
+        guard !viewModel.recipes.isEmpty else { return [] }
+        
+        // Ensure currentIndex is within bounds
+        let safeCurrentIndex = min(max(0, currentIndex), viewModel.recipes.count - 1)
+        
+        // Calculate visible range
+        let start = max(0, safeCurrentIndex - 1)
+        let end = min(viewModel.recipes.count - 1, safeCurrentIndex + 1)
+        
+        // Only create range if valid
+        return start <= end ? Array(start...end) : []
     }
     
     private func calculateOffset(for index: Int) -> CGFloat {
