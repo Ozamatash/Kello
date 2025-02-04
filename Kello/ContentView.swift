@@ -18,9 +18,9 @@ struct ContentView: View {
                     Label("Feed", systemImage: "play.circle.fill")
                 }
             
-            SearchView()
+            DiscoverView()
                 .tabItem {
-                    Label("Search", systemImage: "magnifyingglass")
+                    Label("Discover", systemImage: "magnifyingglass")
                 }
             
             Text("Profile")

@@ -141,79 +141,74 @@ class FirebaseService {
     func filterRecipes(
         timeFilter: CookingTimeFilter? = nil,
         cuisine: String? = nil,
+        mealType: String? = nil,
         limit: Int = 20
     ) async throws -> [Recipe] {
-        print("\nDEBUG: Starting recipe filtering")
-        print("DEBUG: Input parameters - timeFilter: \(String(describing: timeFilter?.displayText)), cuisine: \(String(describing: cuisine))")
-        
-        // Start with the base collection reference and convert to Query
         var query: Query = config.firestore.collection("recipes")
-        print("DEBUG: Created base query")
         
-        // Apply cuisine filter (if any)
+        // Apply equality filters first (most selective)
         if let cuisine = cuisine {
             query = query.whereField("cuisineType", isEqualTo: cuisine)
-            print("DEBUG: Added cuisine filter - \(cuisine)")
         }
         
-        // Apply time filter (if any)
+        if let mealType = mealType {
+            query = query.whereField("mealType", isEqualTo: mealType)
+        }
+        
+        // Apply range filter and corresponding order
         if let timeFilter = timeFilter {
             let range = timeFilter.range
+            query = query.order(by: "cookingTime")
+            
             if timeFilter == .extended {
                 query = query.whereField("cookingTime", isGreaterThanOrEqualTo: range.min)
-                print("DEBUG: Added extended time filter - ≥\(range.min) minutes")
             } else {
                 query = query
                     .whereField("cookingTime", isGreaterThanOrEqualTo: range.min)
                     .whereField("cookingTime", isLessThan: range.max)
-                print("DEBUG: Added time range filter - \(range.min)-\(range.max) minutes")
             }
+            
+            // After range filter, add secondary ordering
+            query = query.order(by: "createdAt", descending: true)
+        } else {
+            // If no time filter, just order by creation date
+            query = query.order(by: "createdAt", descending: true)
         }
         
-        // Always order by createdAt last
-        query = query.order(by: "createdAt", descending: true)
-        print("DEBUG: Added createdAt ordering")
-        
         // Get documents
-        print("DEBUG: Executing query...")
         let snapshot = try await query
             .limit(to: limit)
             .getDocuments()
         
-        print("DEBUG: Query returned \(snapshot.documents.count) documents")
-        
-        let recipes = try snapshot.documents.compactMap { document in
+        return try snapshot.documents.compactMap { document in
             let data = document.data()
-            let recipe = try decodeRecipe(from: data, withId: document.documentID)
-            print("DEBUG: Decoded recipe - id: \(recipe.id), title: \(recipe.title), cuisine: \(recipe.cuisineType), time: \(recipe.cookingTime)")
-            return recipe
+            return try decodeRecipe(from: data, withId: document.documentID)
         }
-        
-        print("DEBUG: Successfully processed \(recipes.count) recipes")
-        if let firstRecipe = recipes.first {
-            print("DEBUG: First recipe details - title: \(firstRecipe.title), cuisine: \(firstRecipe.cuisineType), time: \(firstRecipe.cookingTime)")
-        }
-        
-        return recipes
     }
     
     func filterMoreRecipes(
         after lastRecipe: Recipe,
         timeFilter: CookingTimeFilter? = nil,
         cuisine: String? = nil,
+        mealType: String? = nil,
         limit: Int = 20
     ) async throws -> [Recipe] {
-        // Start with the base collection reference and convert to Query
         var query: Query = config.firestore.collection("recipes")
         
-        // Apply cuisine filter (if any)
+        // Apply equality filters first (most selective)
         if let cuisine = cuisine {
             query = query.whereField("cuisineType", isEqualTo: cuisine)
         }
         
-        // Apply time filter (if any)
+        if let mealType = mealType {
+            query = query.whereField("mealType", isEqualTo: mealType)
+        }
+        
+        // Apply range filter and corresponding order
         if let timeFilter = timeFilter {
             let range = timeFilter.range
+            query = query.order(by: "cookingTime")
+            
             if timeFilter == .extended {
                 query = query.whereField("cookingTime", isGreaterThanOrEqualTo: range.min)
             } else {
@@ -221,74 +216,80 @@ class FirebaseService {
                     .whereField("cookingTime", isGreaterThanOrEqualTo: range.min)
                     .whereField("cookingTime", isLessThan: range.max)
             }
+            
+            // After range filter, add secondary ordering and cursor
+            query = query
+                .order(by: "createdAt", descending: true)
+                .whereField("createdAt", isLessThan: lastRecipe.createdAt)
+        } else {
+            // If no time filter, just order by creation date and add cursor
+            query = query
+                .order(by: "createdAt", descending: true)
+                .whereField("createdAt", isLessThan: lastRecipe.createdAt)
         }
-        
-        // Always order by createdAt last and add cursor
-        query = query
-            .order(by: "createdAt", descending: true)
-            .whereField("createdAt", isLessThan: lastRecipe.createdAt)
-        
-        print("DEBUG: Executing Firestore pagination query with filters - cuisine: \(String(describing: cuisine)), timeFilter: \(String(describing: timeFilter))")
         
         // Get documents
         let snapshot = try await query
             .limit(to: limit)
             .getDocuments()
         
-        print("DEBUG: Pagination query returned \(snapshot.documents.count) documents")
-        
         return try snapshot.documents.compactMap { document in
             let data = document.data()
-            let recipe = try decodeRecipe(from: data, withId: document.documentID)
-            print("DEBUG: Recipe - title: \(recipe.title), cuisine: \(recipe.cuisineType), time: \(recipe.cookingTime)")
-            return recipe
+            return try decodeRecipe(from: data, withId: document.documentID)
         }
     }
     
     // MARK: - Search Operations
     
     func searchRecipes(
-        query: String,
+        query searchQuery: String,
         timeFilter: CookingTimeFilter? = nil,
         cuisine: String? = nil,
+        mealType: String? = nil,
         limit: Int = 20
     ) async throws -> [Recipe] {
-        // Start with the base collection reference
-        let baseQuery = config.firestore.collection("recipes")
+        var query: Query = config.firestore.collection("recipes")
         
-        // Build the query
-        var finalQuery: Query = baseQuery
-        
-        // Order by createdAt first (this should be part of the base query)
-        finalQuery = finalQuery.order(by: "createdAt", descending: true)
-        
-        // Apply time filter first (if any)
-        if let timeFilter = timeFilter {
-            let range = timeFilter.range
-            // For extended time, we only need the lower bound
-            if timeFilter == .extended {
-                finalQuery = finalQuery.whereField("cookingTime", isGreaterThanOrEqualTo: range.min)
-            } else {
-                finalQuery = finalQuery
-                    .whereField("cookingTime", isGreaterThanOrEqualTo: range.min)
-                    .whereField("cookingTime", isLessThan: range.max)
-            }
+        // Apply equality filters first (most selective)
+        if let cuisine = cuisine {
+            query = query.whereField("cuisineType", isEqualTo: cuisine)
         }
         
-        // Apply cuisine filter (equality filter can be combined with range filters)
-        if let cuisine = cuisine {
-            finalQuery = finalQuery.whereField("cuisineType", isEqualTo: cuisine)
+        if let mealType = mealType {
+            query = query.whereField("mealType", isEqualTo: mealType)
         }
         
         // Apply text search if query is not empty
-        if !query.isEmpty {
-            finalQuery = finalQuery
-                .whereField("title", isGreaterThanOrEqualTo: query)
-                .whereField("title", isLessThanOrEqualTo: query + "\u{f8ff}")
+        // Note: This requires a composite index on title and other filtered fields
+        if !searchQuery.isEmpty {
+            query = query
+                .order(by: "title")
+                .whereField("title", isGreaterThanOrEqualTo: searchQuery)
+                .whereField("title", isLessThanOrEqualTo: searchQuery + "\u{f8ff}")
+        }
+        
+        // Apply range filter and corresponding order
+        if let timeFilter = timeFilter {
+            let range = timeFilter.range
+            query = query.order(by: "cookingTime")
+            
+            if timeFilter == .extended {
+                query = query.whereField("cookingTime", isGreaterThanOrEqualTo: range.min)
+            } else {
+                query = query
+                    .whereField("cookingTime", isGreaterThanOrEqualTo: range.min)
+                    .whereField("cookingTime", isLessThan: range.max)
+            }
+            
+            // After range filter, add final ordering
+            query = query.order(by: "createdAt", descending: true)
+        } else if searchQuery.isEmpty {
+            // If no time filter and no search query, order by creation date
+            query = query.order(by: "createdAt", descending: true)
         }
         
         // Get documents
-        let snapshot = try await finalQuery
+        let snapshot = try await query
             .limit(to: limit)
             .getDocuments()
         

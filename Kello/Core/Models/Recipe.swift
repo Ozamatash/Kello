@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 @Model
-class Recipe {
+class Recipe: Identifiable, Equatable {
     var id: String
     var title: String
     var recipeDescription: String
@@ -25,6 +25,12 @@ class Recipe {
     var protein: Double?
     var carbs: Double?
     var fat: Double?
+    
+    // MARK: - Equatable
+    
+    static func == (lhs: Recipe, rhs: Recipe) -> Bool {
+        lhs.id == rhs.id
+    }
     
     init(id: String = UUID().uuidString,
          title: String,
