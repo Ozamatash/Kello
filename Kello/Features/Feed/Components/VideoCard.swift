@@ -3,6 +3,7 @@ import SwiftUI
 struct VideoCard: View {
     let recipe: Recipe
     let isVisible: Bool
+    @State private var showingDetails = false
     
     var body: some View {
         GeometryReader { geometry in
@@ -15,7 +16,27 @@ struct VideoCard: View {
                 .frame(width: geometry.size.width, height: geometry.size.height)
                 
                 // Content overlay
-                RecipeOverlay(recipe: recipe)
+                RecipeOverlay(
+                    recipe: recipe,
+                    onDetailsPressed: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            showingDetails = true
+                        }
+                    }
+                )
+                
+                // Recipe Details Sheet
+                if showingDetails {
+                    Color.black
+                        .opacity(0.4)
+                        .ignoresSafeArea()
+                        .transition(.opacity)
+                    
+                    RecipeDetailsSheet(
+                        recipe: recipe,
+                        isPresented: $showingDetails
+                    )
+                }
             }
         }
         .edgesIgnoringSafeArea(.all)
@@ -24,6 +45,7 @@ struct VideoCard: View {
 
 private struct RecipeOverlay: View {
     let recipe: Recipe
+    let onDetailsPressed: () -> Void
     
     var body: some View {
         VStack(spacing: 0) {
@@ -51,7 +73,7 @@ private struct RecipeOverlay: View {
                 .font(.subheadline)
                 .foregroundColor(.white.opacity(0.9))
                 
-                // Engagement metrics
+                // Engagement metrics and details button
                 HStack(spacing: 20) {
                     Label("\(recipe.likes)", systemImage: "heart.fill")
                         .foregroundColor(.red)
@@ -60,6 +82,14 @@ private struct RecipeOverlay: View {
                     Label("\(recipe.shares)", systemImage: "square.and.arrow.up")
                         .foregroundColor(.green)
                     Spacer()
+                    Button(action: onDetailsPressed) {
+                        Label("Details", systemImage: "list.bullet")
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.white.opacity(0.2))
+                            .cornerRadius(16)
+                    }
                 }
                 .font(.callout)
             }

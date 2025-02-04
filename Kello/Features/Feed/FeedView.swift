@@ -5,6 +5,7 @@ struct FeedView: View {
     @State private var viewModel: FeedViewModel
     @State private var currentIndex = 0
     @GestureState private var dragOffset: CGFloat = 0
+    @StateObject private var playerManager = VideoPlayerManager.shared
     
     init(modelContext: ModelContext) {
         _viewModel = State(initialValue: FeedViewModel(modelContext: modelContext))
@@ -32,6 +33,9 @@ struct FeedView: View {
                     await viewModel.loadMoreRecipes()
                 }
             }
+            
+            // Preload upcoming videos
+            updatePreloadedVideos()
         }
         .onChange(of: viewModel.recipes.count) { oldValue, newValue in
             // Ensure currentIndex is valid when recipes array changes
@@ -40,10 +44,24 @@ struct FeedView: View {
             } else if currentIndex >= newValue {
                 currentIndex = newValue - 1
             }
+            
+            // Update preloaded videos when recipe list changes
+            updatePreloadedVideos()
         }
         .task {
             await viewModel.loadInitialRecipes()
+            updatePreloadedVideos()
         }
+    }
+    
+    private func updatePreloadedVideos() {
+        // Get the next 2 video URLs after the current index
+        let upcomingURLs = viewModel.recipes
+            .dropFirst(currentIndex + 1)
+            .prefix(2)
+            .map(\.videoURL)
+        
+        playerManager.preloadVideos(Array(upcomingURLs))
     }
     
     @ViewBuilder
@@ -105,15 +123,17 @@ struct FeedView: View {
     }
     
     private func handleSwipe(_ value: DragGesture.Value) {
-        let verticalThreshold = UIScreen.main.bounds.height * 0.3
-        let swipeDistance = value.translation.height
+        // Lower the threshold to 15% of the screen height.
+        let verticalThreshold = UIScreen.main.bounds.height * 0.15
+        // Consider the predicted end translation for a more responsive feel.
+        let predictedSwipeDistance = value.predictedEndTranslation.height
+
+        guard abs(predictedSwipeDistance) > verticalThreshold else { return }
         
-        guard abs(swipeDistance) > verticalThreshold else { return }
-        
-        withAnimation {
-            if swipeDistance < 0 && currentIndex < viewModel.recipes.count - 1 {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.75, blendDuration: 0.5)) {
+            if predictedSwipeDistance < 0 && currentIndex < viewModel.recipes.count - 1 {
                 currentIndex += 1
-            } else if swipeDistance > 0 && currentIndex > 0 {
+            } else if predictedSwipeDistance > 0 && currentIndex > 0 {
                 currentIndex -= 1
             }
         }

@@ -19,7 +19,7 @@ class FirebaseService {
             .limit(to: limit)
             .getDocuments()
         
-        return try snapshot.documents.compactMap { document in
+        return snapshot.documents.compactMap { document in
             let data = document.data()
             let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
             let updatedAt = (data["updatedAt"] as? Timestamp)?.dateValue() ?? Date()
@@ -65,7 +65,7 @@ class FirebaseService {
             .limit(to: limit)
             .getDocuments()
         
-        return try snapshot.documents.compactMap { document in
+        return snapshot.documents.compactMap { document in
             let data = document.data()
             let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
             let updatedAt = (data["updatedAt"] as? Timestamp)?.dateValue() ?? Date()
@@ -180,10 +180,7 @@ class FirebaseService {
             .limit(to: limit)
             .getDocuments()
         
-        return try snapshot.documents.compactMap { document in
-            let data = document.data()
-            return try decodeRecipe(from: data, withId: document.documentID)
-        }
+        return try await decodeRecipes(from: snapshot.documents)
     }
     
     func filterMoreRecipes(
@@ -233,10 +230,7 @@ class FirebaseService {
             .limit(to: limit)
             .getDocuments()
         
-        return try snapshot.documents.compactMap { document in
-            let data = document.data()
-            return try decodeRecipe(from: data, withId: document.documentID)
-        }
+        return try await decodeRecipes(from: snapshot.documents)
     }
     
     // MARK: - Search Operations
@@ -280,12 +274,6 @@ class FirebaseService {
                     .whereField("cookingTime", isGreaterThanOrEqualTo: range.min)
                     .whereField("cookingTime", isLessThan: range.max)
             }
-            
-            // After range filter, add final ordering
-            query = query.order(by: "createdAt", descending: true)
-        } else if searchQuery.isEmpty {
-            // If no time filter and no search query, order by creation date
-            query = query.order(by: "createdAt", descending: true)
         }
         
         // Get documents
@@ -293,10 +281,7 @@ class FirebaseService {
             .limit(to: limit)
             .getDocuments()
         
-        return try snapshot.documents.compactMap { document in
-            let data = document.data()
-            return try decodeRecipe(from: data, withId: document.documentID)
-        }
+        return try await decodeRecipes(from: snapshot.documents)
     }
     
     func searchMoreRecipes(
@@ -337,14 +322,19 @@ class FirebaseService {
             .limit(to: limit)
             .getDocuments()
         
-        return try snapshot.documents.compactMap { document in
+        return try await decodeRecipes(from: snapshot.documents)
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func decodeRecipes(from documents: [QueryDocumentSnapshot]) async throws -> [Recipe] {
+        return documents.compactMap { document in
             let data = document.data()
-            return try decodeRecipe(from: data, withId: document.documentID)
+            return decodeRecipe(from: data, withId: document.documentID)
         }
     }
     
-    // Helper method to decode recipe from Firestore data
-    private func decodeRecipe(from data: [String: Any], withId id: String) throws -> Recipe {
+    private func decodeRecipe(from data: [String: Any], withId id: String) -> Recipe {
         let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
         let updatedAt = (data["updatedAt"] as? Timestamp)?.dateValue() ?? Date()
         
