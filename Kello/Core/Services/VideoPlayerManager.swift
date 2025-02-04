@@ -1,6 +1,7 @@
 import Foundation
 import AVFoundation
 import FirebaseStorage
+import os
 
 @MainActor
 final class VideoPlayerManager: ObservableObject {
@@ -15,21 +16,102 @@ final class VideoPlayerManager: ObservableObject {
     private var videoFiles: [String: URL] = [:]
     private var activePlayers: [String: AVPlayer] = [:]
     private var timeObservers: [AVPlayer: Any] = [:]
+    private var currentlyVisibleURL: String?
+    
+    // Debug logging
+    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Kello", category: "VideoPlayer")
+    
+    // Debug state tracking
+    private var playerStates: [String: String] = [:] {
+        didSet {
+            logger.debug("Player states updated: \(self.playerStates)")
+        }
+    }
     
     private init() {
         URLSession.shared.configuration.requestCachePolicy = .returnCacheDataElseLoad
         URLSession.shared.configuration.urlCache?.memoryCapacity = 100 * 1024 * 1024  // 100 MB
         URLSession.shared.configuration.urlCache?.diskCapacity = 1000 * 1024 * 1024   // 1 GB
+        
+        setupAudioSession()
+        setupDebugNotifications()
     }
     
-    deinit {
-        for url in videoFiles.values {
-            try? FileManager.default.removeItem(at: url)
+    private func setupAudioSession() {
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+            try AVAudioSession.sharedInstance().setActive(true)
+            logger.debug("Audio session setup complete")
+        } catch {
+            logger.error("Failed to setup audio session: \(error.localizedDescription)")
         }
-        for (player, observer) in timeObservers {
-            player.removeTimeObserver(observer)
+    }
+    
+    private func setupDebugNotifications() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAudioSessionInterruption),
+            name: AVAudioSession.interruptionNotification,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAudioRouteChange),
+            name: AVAudioSession.routeChangeNotification,
+            object: nil
+        )
+    }
+    
+    @objc private func handleAudioSessionInterruption(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
+            return
         }
-        timeObservers.removeAll()
+        
+        logger.debug("Audio session interruption: \(type.rawValue)")
+        
+        switch type {
+        case .began:
+            // Pause all active players
+            pauseAllPlayers()
+        case .ended:
+            guard let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt else { return }
+            let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
+            if options.contains(.shouldResume) {
+                // Only resume the currently visible player
+                resumeVisiblePlayer()
+            }
+        @unknown default:
+            break
+        }
+    }
+    
+    @objc private func handleAudioRouteChange(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
+            return
+        }
+        
+        logger.debug("Audio route changed: \(reason.rawValue)")
+    }
+    
+    private func pauseAllPlayers() {
+        for (url, player) in activePlayers {
+            player.pause()
+            playerStates[url] = "paused"
+        }
+    }
+    
+    private func resumeVisiblePlayer() {
+        guard let visibleURL = playerStates.first(where: { $0.value == "visible" })?.key,
+              let player = activePlayers[visibleURL] else {
+            return
+        }
+        player.play()
+        playerStates[visibleURL] = "playing"
     }
     
     func player(for url: String, isVisible: Bool) async throws -> AVPlayer {
@@ -100,30 +182,83 @@ final class VideoPlayerManager: ObservableObject {
     }
     
     func handleVisibilityChange(for url: String, isVisible: Bool) {
-        if let player = activePlayers[url] {
-            if isVisible {
+        logger.debug("Visibility change for \(url): isVisible=\(isVisible)")
+        
+        if isVisible {
+            // If there was a previously visible URL, handle its cleanup
+            if let previousURL = currentlyVisibleURL, previousURL != url {
+                stopAndRemovePlayer(for: previousURL)
+            }
+            
+            currentlyVisibleURL = url
+            playerStates[url] = "visible"
+            
+            // Stop all other players immediately
+            for (playerURL, player) in activePlayers where playerURL != url {
+                stopAndRemovePlayer(for: playerURL)
+            }
+            
+            if let player = activePlayers[url] {
                 Task {
+                    // Reset and play the current video
                     await player.seek(to: .zero)
+                    player.volume = 1.0
                     player.play()
+                    playerStates[url] = "playing"
+                    logger.debug("Playing video for \(url)")
                 }
-            } else {
+            }
+        } else {
+            if currentlyVisibleURL == url {
+                currentlyVisibleURL = nil
+            }
+            
+            if let player = activePlayers[url] {
                 player.pause()
-            }
-            return
-        }
-        
-        guard let task = activeRequests[url] else { return }
-        
-        Task {
-            if let player = try? await task.value {
-                if isVisible {
-                    await player.seek(to: .zero)
-                    player.play()
-                } else {
-                    player.pause()
+                player.volume = 0.0
+                playerStates[url] = "paused"
+                logger.debug("Paused video for \(url)")
+                
+                // If this player is not needed for preloading, remove it
+                if currentlyVisibleURL == nil || !isAdjacentToVisible(url) {
+                    stopAndRemovePlayer(for: url)
                 }
             }
         }
+    }
+    
+    private func isAdjacentToVisible(_ url: String) -> Bool {
+        guard let visibleURL = currentlyVisibleURL,
+              let urls = Array(activePlayers.keys) as? [String],
+              let visibleIndex = urls.firstIndex(of: visibleURL),
+              let currentIndex = urls.firstIndex(of: url) else {
+            return false
+        }
+        
+        return abs(currentIndex - visibleIndex) == 1
+    }
+    
+    private func stopAndRemovePlayer(for url: String) {
+        guard let player = activePlayers[url] else { return }
+        
+        // First pause and zero the volume
+        player.pause()
+        player.volume = 0.0
+        
+        // Remove the player item to stop any background loading
+        player.replaceCurrentItem(with: nil)
+        
+        // Remove time observer
+        if let observer = timeObservers[player] {
+            player.removeTimeObserver(observer)
+            timeObservers.removeValue(forKey: player)
+        }
+        
+        // Remove from active players and states
+        activePlayers.removeValue(forKey: url)
+        playerStates.removeValue(forKey: url)
+        
+        logger.debug("Stopped and removed player for \(url)")
     }
     
     private func createURLRequest(from urlString: String) async throws -> URLRequest {
@@ -183,23 +318,77 @@ final class VideoPlayerManager: ObservableObject {
         playerItem.preferredForwardBufferDuration = 10
         
         let player = AVPlayer(playerItem: playerItem)
+        player.volume = 0.0  // Start with volume at 0
         player.automaticallyWaitsToMinimizeStalling = false
         player.allowsExternalPlayback = false
         player.preventsDisplaySleepDuringVideoPlayback = true
         
+        // Debug notification for item end
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(playerItemDidReachEnd),
+            name: .AVPlayerItemDidPlayToEndTime,
+            object: playerItem
+        )
+        
         let timeObserver = player.addPeriodicTimeObserver(
             forInterval: CMTime(seconds: 0.5, preferredTimescale: CMTimeScale(NSEC_PER_SEC)),
             queue: .main
-        ) { [weak player] time in
-            if let player = player, player.rate == 0 && time.seconds > 0 {
-                player.play()
+        ) { [weak player, weak self] time in
+            guard let player = player,
+                  let self = self,
+                  let url = self.activePlayers.first(where: { $0.value === player })?.key else {
+                return
             }
+            
+            // Only auto-play if this is the currently visible player
+            guard url == self.currentlyVisibleURL,
+                  player.rate == 0,
+                  time.seconds > 0 else {
+                return
+            }
+            
+            self.logger.debug("Auto-playing stopped player at time: \(time.seconds)")
+            player.volume = 1.0
+            player.play()
         }
         
         timeObservers[player] = timeObserver
-        player.play()
         
         return player
+    }
+    
+    @objc private func playerItemDidReachEnd(_ notification: Notification) {
+        guard let playerItem = notification.object as? AVPlayerItem,
+              let playerEntry = activePlayers.first(where: { $0.value.currentItem === playerItem })
+        else { return }
+        
+        let (url, player) = playerEntry
+        guard let state = self.playerStates[url],
+              state == "playing" || state == "visible" else {
+            logger.debug("Ignoring end of video for \(url) in state: \(self.playerStates[url] ?? "unknown")")
+            return
+        }
+        
+        logger.debug("Player reached end for URL: \(url) - replaying")
+        Task {
+            await playerItem.seek(to: .zero)
+            player.play()
+        }
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+        for url in videoFiles.values {
+            try? FileManager.default.removeItem(at: url)
+        }
+        for (player, observer) in timeObservers {
+            player.removeTimeObserver(observer)
+        }
+        timeObservers.removeAll()
+        
+        // Clean up audio session
+        try? AVAudioSession.sharedInstance().setActive(false)
     }
 }
 
