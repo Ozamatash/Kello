@@ -19,6 +19,7 @@ struct VideoPlayerView: View {
         print("Item Status: \(currentItem.status.rawValue)")
         print("Item Duration: \(currentItem.duration.seconds)")
         print("Item Tracks: \(currentItem.tracks.count)")
+        print("Is Visible: \(isVisible)")
         if let error = currentItem.error {
             print("Item Error: \(error)")
         }
@@ -57,9 +58,6 @@ struct VideoPlayerView: View {
             setupAudioSession()
             setupPlayer()
         }
-        .onDisappear {
-            cleanup()
-        }
         .onChange(of: isVisible) { oldValue, newValue in
             handleVisibilityChange(isVisible: newValue)
         }
@@ -85,6 +83,7 @@ struct VideoPlayerView: View {
             player.seek(to: .zero)
             player.volume = 1.0
             player.play()
+            logPlayerStatus()
         } else {
             player.pause()
             player.volume = 0.0
@@ -152,7 +151,11 @@ struct VideoPlayerView: View {
         let playerItem = AVPlayerItem(asset: asset)
         playerItem.preferredForwardBufferDuration = 10
         
-        return AVPlayer(playerItem: playerItem)
+        // Create player and set it to automatically loop
+        let player = AVPlayer(playerItem: playerItem)
+        player.actionAtItemEnd = .none // Prevent player from stopping at end
+        
+        return player
     }
     
     private func setupPlayer() {
@@ -177,35 +180,15 @@ struct VideoPlayerView: View {
             }
         }
     }
-    
-    private func cleanup() {
-        player?.pause()
-        
-        // Clean up temporary files if they exist
-        if let playerItem = player?.currentItem,
-           let asset = playerItem.asset as? AVURLAsset {
-            try? FileManager.default.removeItem(at: asset.url)
-        }
-        
-        // Properly cleanup audio session
-        do {
-            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        } catch {
-            print("Failed to deactivate audio session: \(error)")
-        }
-        
-        NotificationCenter.default.removeObserver(self)
-        player = nil
-    }
 }
 
 // Player container to handle KVO
 final class PlayerContainerViewController: UIViewController {
     private var player: AVPlayer
     private var playerLayer: AVPlayerLayer?
-    private var timeObserver: Any?
     private var statusObserver: NSKeyValueObservation?
     private var loadedTimeRangesObserver: NSKeyValueObservation?
+    private var loopObserver: NSObjectProtocol?
     
     init(player: AVPlayer) {
         self.player = player
@@ -242,14 +225,18 @@ final class PlayerContainerViewController: UIViewController {
         // Enable background video loading
         player.currentItem?.canUseNetworkResourcesForLiveStreamingWhilePaused = true
         
-        // Loop video
-        NotificationCenter.default.addObserver(
+        // Loop video - observe the player instead of a specific item
+        loopObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
-            object: player.currentItem,
+            object: nil,
             queue: .main
-        ) { [weak self] _ in
-            self?.player.seek(to: .zero)
-            self?.player.play()
+        ) { [weak self] notification in
+            guard let self = self,
+                  let playerItem = notification.object as? AVPlayerItem,
+                  playerItem == self.player.currentItem else { return }
+            
+            self.player.seek(to: .zero)
+            self.player.play()
         }
     }
     
@@ -283,14 +270,12 @@ final class PlayerContainerViewController: UIViewController {
         }
     }
     
-    override func viewDidDisappear(_ animated: Bool) {
-        super.viewDidDisappear(animated)
+    deinit {
         statusObserver?.invalidate()
         loadedTimeRangesObserver?.invalidate()
-        if let timeObserver = timeObserver {
-            player.removeTimeObserver(timeObserver)
+        if let loopObserver = loopObserver {
+            NotificationCenter.default.removeObserver(loopObserver)
         }
-        NotificationCenter.default.removeObserver(self)
     }
 }
 
