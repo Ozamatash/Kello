@@ -162,14 +162,12 @@ struct VideoPlayerView: View {
         Task {
             do {
                 let player = try await createPlayer(from: videoURL)
-                player.volume = isVisible ? 1.0 : 0.0
                 
                 await MainActor.run {
                     self.player = player
-                    if isVisible {
-                        player.play()
-                    }
-                    isLoading = false
+                    self.isLoading = false
+                    // Immediately handle visibility after player is created
+                    handleVisibilityChange(isVisible: isVisible)
                 }
             } catch {
                 print("❌ Player setup error: \(error)")

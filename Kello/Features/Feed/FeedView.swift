@@ -5,9 +5,11 @@ struct FeedView: View {
     @State private var viewModel: FeedViewModel
     @State private var currentIndex = 0
     @GestureState private var dragOffset: CGFloat = 0
+    let isTabActive: Bool
     
-    init(modelContext: ModelContext) {
+    init(modelContext: ModelContext, isTabActive: Bool) {
         _viewModel = State(initialValue: FeedViewModel(modelContext: modelContext))
+        self.isTabActive = isTabActive
     }
     
     var body: some View {
@@ -67,7 +69,7 @@ struct FeedView: View {
             ) { index in
                 VideoCard(
                     recipe: viewModel.recipes[index],
-                    isVisible: index == currentIndex
+                    isVisible: isTabActive && index == currentIndex
                 )
                 .offset(y: calculateOffset(for: index))
                 .gesture(createSwipeGesture())
