@@ -121,11 +121,11 @@ class RecipeDataGenerator {
         let ingredientsText = "\(meal.title). \(description). Ingredients: \(ingredients.joined(separator: ", "))"
         
         return [
-            "id": UUID().uuidString,
             "title": meal.title,
             "description": description,
             "cookingTime": meal.time,
             "cuisineType": cuisineTypes.randomElement()!,
+            "mealType": meal.type,
             "ingredients": ingredients,
             "steps": generateSteps(count: Int.random(in: 4...8)),
             "videoURL": videoURL,

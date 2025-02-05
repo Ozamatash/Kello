@@ -63,6 +63,7 @@ final class DiscoverViewModel: ObservableObject {
     }
     
     private let firebaseService = FirebaseService.shared
+    private let searchService = RecipeSearchService()
     private var loadingTask: Task<Void, Never>?
     
     // MARK: - Initialization
@@ -93,6 +94,47 @@ final class DiscoverViewModel: ObservableObject {
         selectedCuisine = nil
         selectedMealType = nil
         loadRecipes()
+    }
+    
+    func clearSearch() {
+        loadRecipes()
+    }
+    
+    func performSearch(_ searchTerm: String) async {
+        loadingTask?.cancel()
+        recipes = []
+        
+        do {
+            // First perform semantic search
+            let searchResults = try await searchService.searchRecipes(searchTerm: searchTerm)
+            
+            // Then apply filters if any are active
+            if hasActiveFilters {
+                recipes = searchResults.filter { recipe in
+                    var matches = true
+                    
+                    if let timeFilter = selectedTimeFilter {
+                        matches = matches && recipe.cookingTime >= timeFilter.range.min && recipe.cookingTime < timeFilter.range.max
+                    }
+                    
+                    if let cuisine = selectedCuisine {
+                        matches = matches && recipe.cuisineType == cuisine
+                    }
+                    
+                    if let mealType = selectedMealType {
+                        matches = matches && recipe.mealType == mealType.rawValue
+                    }
+                    
+                    return matches
+                }
+            } else {
+                recipes = searchResults
+            }
+            
+            error = nil
+        } catch {
+            self.error = error
+        }
     }
     
     // MARK: - Private Methods

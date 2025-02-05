@@ -30,10 +30,17 @@ class FirebaseService {
                 description: data["description"] as? String ?? "",
                 cookingTime: data["cookingTime"] as? Int ?? 0,
                 cuisineType: data["cuisineType"] as? String ?? "",
+                mealType: data["mealType"] as? String ?? "Dinner",
                 ingredients: data["ingredients"] as? [String] ?? [],
                 steps: data["steps"] as? [String] ?? [],
                 videoURL: data["videoURL"] as? String ?? "",
-                thumbnailURL: data["thumbnailURL"] as? String ?? ""
+                thumbnailURL: data["thumbnailURL"] as? String ?? "",
+                calories: data["calories"] as? Int,
+                protein: data["protein"] as? Double,
+                carbs: data["carbs"] as? Double,
+                fat: data["fat"] as? Double,
+                embedding: data["embedding"] as? [Double],
+                embeddingStatus: data["embeddingStatus"] as? String
             )
             
             // Set timestamps
@@ -76,10 +83,17 @@ class FirebaseService {
                 description: data["description"] as? String ?? "",
                 cookingTime: data["cookingTime"] as? Int ?? 0,
                 cuisineType: data["cuisineType"] as? String ?? "",
+                mealType: data["mealType"] as? String ?? "Dinner",
                 ingredients: data["ingredients"] as? [String] ?? [],
                 steps: data["steps"] as? [String] ?? [],
                 videoURL: data["videoURL"] as? String ?? "",
-                thumbnailURL: data["thumbnailURL"] as? String ?? ""
+                thumbnailURL: data["thumbnailURL"] as? String ?? "",
+                calories: data["calories"] as? Int,
+                protein: data["protein"] as? Double,
+                carbs: data["carbs"] as? Double,
+                fat: data["fat"] as? Double,
+                embedding: data["embedding"] as? [Double],
+                embeddingStatus: data["embeddingStatus"] as? String
             )
             
             // Set timestamps
@@ -344,10 +358,17 @@ class FirebaseService {
             description: data["description"] as? String ?? "",
             cookingTime: data["cookingTime"] as? Int ?? 0,
             cuisineType: data["cuisineType"] as? String ?? "",
+            mealType: data["mealType"] as? String ?? "Dinner",
             ingredients: data["ingredients"] as? [String] ?? [],
             steps: data["steps"] as? [String] ?? [],
             videoURL: data["videoURL"] as? String ?? "",
-            thumbnailURL: data["thumbnailURL"] as? String ?? ""
+            thumbnailURL: data["thumbnailURL"] as? String ?? "",
+            calories: data["calories"] as? Int,
+            protein: data["protein"] as? Double,
+            carbs: data["carbs"] as? Double,
+            fat: data["fat"] as? Double,
+            embedding: data["embedding"] as? [Double],
+            embeddingStatus: data["embeddingStatus"] as? String
         )
         
         // Set timestamps
@@ -358,14 +379,6 @@ class FirebaseService {
         recipe.likes = data["likes"] as? Int ?? 0
         recipe.comments = data["comments"] as? Int ?? 0
         recipe.shares = data["shares"] as? Int ?? 0
-        
-        // Set nutritional info
-        if let nutritionalInfo = data["nutritionalInfo"] as? [String: Any] {
-            recipe.calories = nutritionalInfo["calories"] as? Int
-            recipe.protein = nutritionalInfo["protein"] as? Double
-            recipe.carbs = nutritionalInfo["carbs"] as? Double
-            recipe.fat = nutritionalInfo["fat"] as? Double
-        }
         
         return recipe
     }

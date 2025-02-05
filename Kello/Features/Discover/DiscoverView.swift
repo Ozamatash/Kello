@@ -1,24 +1,81 @@
 import SwiftUI
 
 struct DiscoverView: View {
+    @StateObject private var viewModel = DiscoverViewModel()
     @State private var searchTerm = ""
-    @State private var recipes: [Recipe] = []
     @State private var isSearching = false
     @State private var searchError: Error?
-    
-    private let searchService = RecipeSearchService()
+    @State private var searchTask: Task<Void, Never>?
     
     var body: some View {
         NavigationView {
-            VStack {
-                if isSearching {
-                    ProgressView("Searching recipes...")
-                } else if let error = searchError {
+            VStack(spacing: 0) {
+                // Filters section
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        // Time filters
+                        ForEach(CookingTimeFilter.allCases) { filter in
+                            FilterChip(
+                                title: filter.displayText,
+                                isSelected: viewModel.selectedTimeFilter == filter
+                            ) {
+                                viewModel.selectTimeFilter(filter)
+                            }
+                        }
+                        
+                        Divider()
+                            .frame(height: 24)
+                            .padding(.horizontal, 4)
+                        
+                        // Cuisine filters
+                        ForEach(viewModel.availableCuisines, id: \.self) { cuisine in
+                            FilterChip(
+                                title: cuisine,
+                                isSelected: viewModel.selectedCuisine == cuisine
+                            ) {
+                                viewModel.selectCuisine(cuisine)
+                            }
+                        }
+                        
+                        Divider()
+                            .frame(height: 24)
+                            .padding(.horizontal, 4)
+                        
+                        // Meal type filters
+                        ForEach(MealType.allCases) { type in
+                            FilterChip(
+                                title: type.rawValue,
+                                isSelected: viewModel.selectedMealType == type
+                            ) {
+                                viewModel.selectMealType(type)
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+                .padding(.vertical, 8)
+                .background(Color(.systemBackground))
+                
+                // Clear filters button
+                if viewModel.hasActiveFilters {
+                    Button(action: viewModel.clearFilters) {
+                        Text("Clear Filters")
+                            .font(.subheadline)
+                            .foregroundColor(.accentColor)
+                    }
+                    .padding(.vertical, 8)
+                }
+                
+                // Content area
+                if isSearching || viewModel.isLoading {
+                    ProgressView("Loading recipes...")
+                        .padding()
+                } else if let error = searchError ?? viewModel.error {
                     VStack(spacing: 16) {
                         Image(systemName: "exclamationmark.triangle")
                             .font(.largeTitle)
                             .foregroundColor(.orange)
-                        Text("Search failed")
+                        Text("Error loading recipes")
                             .font(.headline)
                         Text(error.localizedDescription)
                             .font(.subheadline)
@@ -27,14 +84,14 @@ struct DiscoverView: View {
                             .padding(.horizontal)
                     }
                     .padding()
-                } else if recipes.isEmpty && !searchTerm.isEmpty {
+                } else if viewModel.recipes.isEmpty && !searchTerm.isEmpty {
                     VStack(spacing: 16) {
                         Image(systemName: "magnifyingglass")
                             .font(.largeTitle)
                             .foregroundColor(.secondary)
                         Text("No recipes found")
                             .font(.headline)
-                        Text("Try different ingredients or a different search term")
+                        Text("Try different ingredients or adjust your filters")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
@@ -45,7 +102,7 @@ struct DiscoverView: View {
                             GridItem(.flexible(), spacing: 16),
                             GridItem(.flexible(), spacing: 16)
                         ], spacing: 16) {
-                            ForEach(recipes) { recipe in
+                            ForEach(viewModel.recipes) { recipe in
                                 RecipeCard(recipe: recipe)
                             }
                         }
@@ -58,19 +115,26 @@ struct DiscoverView: View {
                 prompt: "Search recipes by ingredients..."
             )
             .onChange(of: searchTerm) { _, newValue in
+                // Cancel any existing search task
+                searchTask?.cancel()
+                
                 // Don't search if the term is empty
                 guard !newValue.isEmpty else {
-                    recipes = []
+                    viewModel.clearSearch()
                     return
                 }
                 
-                // Debounce the search
-                Task {
-                    try? await Task.sleep(for: .milliseconds(500))
+                // Create new debounced search task
+                searchTask = Task {
+                    try? await Task.sleep(for: .milliseconds(800))  // Increased debounce time
                     guard !Task.isCancelled else { return }
                     
                     await search()
                 }
+            }
+            .onDisappear {
+                // Cancel any pending search when view disappears
+                searchTask?.cancel()
             }
             .navigationTitle("Discover Recipes")
         }
@@ -81,7 +145,7 @@ struct DiscoverView: View {
         searchError = nil
         
         do {
-            recipes = try await searchService.searchRecipes(searchTerm: searchTerm)
+            await viewModel.performSearch(searchTerm)
         } catch {
             searchError = error
         }

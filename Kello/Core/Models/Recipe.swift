@@ -8,6 +8,7 @@ class Recipe: Identifiable, Equatable {
     var recipeDescription: String
     var cookingTime: Int // in minutes
     var cuisineType: String
+    var mealType: String
     var ingredients: [String]
     var steps: [String]
     var videoURL: String
@@ -47,6 +48,7 @@ class Recipe: Identifiable, Equatable {
          description: String,
          cookingTime: Int,
          cuisineType: String,
+         mealType: String = "Dinner", // Default to dinner if not specified
          ingredients: [String],
          steps: [String],
          videoURL: String,
@@ -62,6 +64,7 @@ class Recipe: Identifiable, Equatable {
         self.recipeDescription = description
         self.cookingTime = cookingTime
         self.cuisineType = cuisineType
+        self.mealType = mealType
         self.ingredients = ingredients
         self.steps = steps
         self.videoURL = videoURL
