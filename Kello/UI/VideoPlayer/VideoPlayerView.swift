@@ -47,7 +47,17 @@ struct VideoPlayerView: View {
         }
         .background(Color.black)
         .task {
-            await preloadAssets()
+            if currentAsset == nil {
+                await preloadAssets()
+                if isVisible {
+                    setupPlayer()
+                }
+            }
+        }
+        .onAppear {
+            if isVisible && queuePlayer == nil {
+                setupPlayer()
+            }
         }
         .onChange(of: isVisible) { _, newValue in
             if newValue {

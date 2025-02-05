@@ -181,6 +181,7 @@ struct FilterChip: View {
 
 struct RecipeCard: View {
     let recipe: Recipe
+    @State private var showingVideo = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -191,6 +192,12 @@ struct RecipeCard: View {
         .background(Color(.systemBackground))
         .cornerRadius(16)
         .shadow(radius: 2)
+        .onTapGesture {
+            showingVideo = true
+        }
+        .fullScreenCover(isPresented: $showingVideo) {
+            RecipeVideoView(recipe: recipe)
+        }
     }
     
     private var thumbnailImage: some View {
