@@ -16,14 +16,9 @@ struct VideoPlayerView: View {
     var body: some View {
         ZStack {
             if let player = queuePlayer {
-                VideoPlayer(player: player)
+                PlayerContainerView(player: player)
+                    .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
                     .edgesIgnoringSafeArea(.all)
-                    .aspectRatio(contentMode: .fill)
-                    // Add black background to avoid any potential gaps
-                    .background(Color.black)
-                    // Clip any content that overflows
-                    .clipped()
-                    // Add tap gesture overlay
                     .overlay(Color.black.opacity(0.001))
                     .onTapGesture {
                         if isPlaying {
