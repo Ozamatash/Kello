@@ -9,95 +9,100 @@ struct DiscoverView: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                // Filters section
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
+            ScrollView {
+                VStack(spacing: 0) {
+                    // Filters section
+                    VStack(spacing: 12) {
                         // Time filters
-                        ForEach(CookingTimeFilter.allCases) { filter in
-                            FilterChip(
-                                title: filter.displayText,
-                                isSelected: viewModel.selectedTimeFilter == filter
-                            ) {
-                                viewModel.selectTimeFilter(filter)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Cooking Time")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal)
+                            
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(CookingTimeFilter.allCases) { filter in
+                                        FilterChip(
+                                            title: filter.displayText,
+                                            isSelected: viewModel.selectedTimeFilter == filter
+                                        ) {
+                                            viewModel.selectTimeFilter(filter)
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal)
                             }
                         }
-                        
-                        Divider()
-                            .frame(height: 24)
-                            .padding(.horizontal, 4)
                         
                         // Cuisine filters
-                        ForEach(viewModel.availableCuisines, id: \.self) { cuisine in
-                            FilterChip(
-                                title: cuisine,
-                                isSelected: viewModel.selectedCuisine == cuisine
-                            ) {
-                                viewModel.selectCuisine(cuisine)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Cuisine")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal)
+                            
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(viewModel.availableCuisines, id: \.self) { cuisine in
+                                        FilterChip(
+                                            title: cuisine,
+                                            isSelected: viewModel.selectedCuisine == cuisine
+                                        ) {
+                                            viewModel.selectCuisine(cuisine)
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal)
                             }
                         }
-                        
-                        Divider()
-                            .frame(height: 24)
-                            .padding(.horizontal, 4)
-                        
-                        // Meal type filters
-                        ForEach(MealType.allCases) { type in
-                            FilterChip(
-                                title: type.rawValue,
-                                isSelected: viewModel.selectedMealType == type
-                            ) {
-                                viewModel.selectMealType(type)
-                            }
-                        }
-                    }
-                    .padding(.horizontal)
-                }
-                .padding(.vertical, 8)
-                .background(Color(.systemBackground))
-                
-                // Clear filters button
-                if viewModel.hasActiveFilters {
-                    Button(action: viewModel.clearFilters) {
-                        Text("Clear Filters")
-                            .font(.subheadline)
-                            .foregroundColor(.accentColor)
                     }
                     .padding(.vertical, 8)
-                }
-                
-                // Content area
-                if isSearching || viewModel.isLoading {
-                    ProgressView("Loading recipes...")
+                    .background(Color(.systemBackground))
+                    
+                    // Clear filters button
+                    if viewModel.hasActiveFilters {
+                        Button(action: viewModel.clearFilters) {
+                            Text("Clear All Filters")
+                                .font(.subheadline)
+                                .foregroundColor(.accentColor)
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    
+                    // Content area
+                    if isSearching || viewModel.isLoading {
+                        ProgressView("Loading recipes...")
+                            .padding(.top, 40)
+                    } else if let error = searchError ?? viewModel.error {
+                        VStack(spacing: 16) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.largeTitle)
+                                .foregroundColor(.orange)
+                            Text("Error loading recipes")
+                                .font(.headline)
+                            Text(error.localizedDescription)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                        }
                         .padding()
-                } else if let error = searchError ?? viewModel.error {
-                    VStack(spacing: 16) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.largeTitle)
-                            .foregroundColor(.orange)
-                        Text("Error loading recipes")
-                            .font(.headline)
-                        Text(error.localizedDescription)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal)
-                    }
-                    .padding()
-                } else if viewModel.recipes.isEmpty && !searchTerm.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.largeTitle)
-                            .foregroundColor(.secondary)
-                        Text("No recipes found")
-                            .font(.headline)
-                        Text("Try different ingredients or adjust your filters")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding()
-                } else {
-                    ScrollView {
+                        .padding(.top, 40)
+                    } else if viewModel.recipes.isEmpty && !searchTerm.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.largeTitle)
+                                .foregroundColor(.secondary)
+                            Text("No recipes found")
+                                .font(.headline)
+                            Text("Try different ingredients or adjust your filters")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding()
+                        .padding(.top, 40)
+                    } else {
                         LazyVGrid(columns: [
                             GridItem(.flexible(), spacing: 16),
                             GridItem(.flexible(), spacing: 16)
