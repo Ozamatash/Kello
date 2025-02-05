@@ -33,13 +33,6 @@ struct VideoPlayerView: View {
                         }
                         isPlaying.toggle()
                     }
-                    // Play/pause indicator
-                    .overlay {
-                        Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                            .font(.system(size: 50))
-                            .foregroundColor(.white.opacity(0.8))
-                            .opacity(isPlaying ? 0 : 1)
-                    }
             } else {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle(tint: .white))

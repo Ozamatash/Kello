@@ -5,6 +5,36 @@ import FirebaseFirestore
 class RecipeDataGenerator {
     // MARK: - Recipe Components
     
+    // Free-to-use food thumbnails from Unsplash
+    private static let foodThumbnails = [
+        "https://images.unsplash.com/photo-1546069901-ba9599a7e63c", // Healthy breakfast bowl
+        "https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445", // Pan-fried noodles
+        "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38", // Pizza
+        "https://images.unsplash.com/photo-1565958011703-44f9829ba187", // Salmon dish
+        "https://images.unsplash.com/photo-1482049016688-2d3e1b311543", // Breakfast
+        "https://images.unsplash.com/photo-1504674900247-0877df9cc836", // Steak
+        "https://images.unsplash.com/photo-1512621776951-a57141f2eefd", // Healthy salad
+        "https://images.unsplash.com/photo-1473093295043-cdd812d0e601", // Pasta
+        "https://images.unsplash.com/photo-1555939594-58d7cb561ad1", // Lunch bowl
+        "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe", // Burger
+        "https://images.unsplash.com/photo-1565299507177-b0ac66763828", // Asian food
+        "https://images.unsplash.com/photo-1512058564366-18510be2db19", // Healthy breakfast
+        "https://images.unsplash.com/photo-1467003909585-2f8a72700288", // Pasta dish
+        "https://images.unsplash.com/photo-1484723091739-30a097e8f929", // Pancakes
+        "https://images.unsplash.com/photo-1547592180-85f173990554", // Indian food
+        "https://images.unsplash.com/photo-1551183053-bf91a1d81141", // Colorful bowl
+        "https://images.unsplash.com/photo-1432139509613-5c4255815697", // Mediterranean
+        "https://images.unsplash.com/photo-1476224203421-9ac39bcb3327" // Dessert
+    ].map { url in
+        // Add Unsplash quality parameters optimized for thumbnails
+        // w=200: width of 200px (height will scale proportionally)
+        // q=60: 60% quality is sufficient for thumbnails
+        // fm=webp: WebP format for better compression
+        // fit=crop: ensure consistent dimensions
+        // crop=entropy: smart cropping to keep the important parts
+        "\(url)?w=200&q=60&fm=webp&fit=crop&crop=entropy"
+    }
+    
     private static let cuisineTypes = [
         "Italian", "Chinese", "Japanese", "Mexican", "Indian",
         "Thai", "French", "American", "Mediterranean", "Korean",
@@ -237,23 +267,8 @@ class RecipeDataGenerator {
         let ingredients = generateIngredients(for: meal.title)
         let description = "A delicious \(meal.type.lowercased()) recipe that's perfect for any \(meal.type.lowercased()) occasion."
         
-        // Create a more detailed ingredientsText for better semantic search
-        let ingredientsText = """
-            \(meal.title). This is a \(cuisineTypes.randomElement()!) \(meal.type.lowercased()) that takes \(meal.time) minutes to prepare. \
-            \(description) \
-            This recipe includes the following ingredients: \(ingredients.joined(separator: ", ")). \
-            Perfect for \(["beginners", "home cooks", "busy weeknights", "meal prep", "special occasions"].randomElement()!). \
-            This dish is \(["easy to make", "quick to prepare", "perfect for the family", "great for entertaining", "budget-friendly"].randomElement()!) \
-            and \(["healthy", "nutritious", "satisfying", "delicious", "flavorful"].randomElement()!). \
-            Cooking method includes \(["baking", "sautéing", "grilling", "roasting", "steaming", "stir-frying"].randomElement()!). \
-            Great for \(meal.type == "Breakfast" ? "starting your day" :
-                      meal.type == "Lunch" ? "a midday meal" :
-                      meal.type == "Dinner" ? "an evening meal" :
-                      meal.type == "Snack" ? "a quick bite" : "dessert"). \
-            Dietary notes: \(["vegetarian-friendly", "can be made gluten-free", "protein-rich", "low-carb option available", "dairy-free option available"].randomElement()!).
-            """
-        
         return [
+            "id": UUID().uuidString,
             "title": meal.title,
             "description": description,
             "cookingTime": meal.time,
@@ -262,7 +277,7 @@ class RecipeDataGenerator {
             "ingredients": ingredients,
             "steps": generateSteps(count: Int.random(in: 4...8)),
             "videoURL": videoURL,
-            "thumbnailURL": "https://example.com/\(meal.title.lowercased().replacingOccurrences(of: " ", with: "-")).jpg",
+            "thumbnailURL": foodThumbnails.randomElement()!,
             "createdAt": FieldValue.serverTimestamp(),
             "updatedAt": FieldValue.serverTimestamp(),
             "likes": engagement.likes,
@@ -271,10 +286,7 @@ class RecipeDataGenerator {
             "calories": nutrition.calories,
             "protein": nutrition.protein,
             "carbs": nutrition.carbs,
-            "fat": nutrition.fat,
-            "ingredientsText": ingredientsText,  // Add the text field for vector search
-            "embedding": NSNull(),  // This will be populated by the Vector Search extension
-            "embeddingStatus": NSNull()  // This will be populated by the Vector Search extension
+            "fat": nutrition.fat
         ]
     }
     
