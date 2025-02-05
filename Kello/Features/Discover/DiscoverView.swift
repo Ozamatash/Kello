@@ -188,6 +188,8 @@ struct RecipeCard: View {
             thumbnailImage
             recipeInfo
         }
+        .frame(height: 200) // Fixed card height
+        .frame(maxWidth: .infinity)
         .padding(8)
         .background(Color(.systemBackground))
         .cornerRadius(16)
@@ -209,14 +211,17 @@ struct RecipeCard: View {
             Color.gray
         }
         .frame(height: 120)
+        .aspectRatio(16/9, contentMode: .fill)
+        .clipped()
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
     
     private var recipeInfo: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(recipe.title)
                 .font(.headline)
                 .lineLimit(2)
+                .frame(height: 44) // Fixed height for 2 lines
             
             HStack {
                 Label("\(recipe.cookingTime)m", systemImage: "clock")
