@@ -10,15 +10,20 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var authViewModel: AuthViewModel
     @State private var selectedTab = 0
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            FeedView(modelContext: modelContext, isTabActive: selectedTab == 0)
-                .tabItem {
-                    Label("Feed", systemImage: "play.circle.fill")
-                }
-                .tag(0)
+            FeedView(
+                modelContext: modelContext,
+                isTabActive: selectedTab == 0,
+                authViewModel: authViewModel
+            )
+            .tabItem {
+                Label("Feed", systemImage: "play.circle.fill")
+            }
+            .tag(0)
             
             DiscoverView()
                 .tabItem {
@@ -26,7 +31,7 @@ struct ContentView: View {
                 }
                 .tag(1)
             
-            Text("Profile")
+            ProfileView()
                 .tabItem {
                     Label("Profile", systemImage: "person.circle")
                 }
@@ -51,4 +56,5 @@ struct ContentView: View {
 #Preview {
     ContentView()
         .modelContainer(for: Recipe.self, inMemory: true)
+        .environmentObject(AuthViewModel())
 }

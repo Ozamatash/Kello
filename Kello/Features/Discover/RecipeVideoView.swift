@@ -1,8 +1,11 @@
 import SwiftUI
+import SwiftData
 
 struct RecipeVideoView: View {
     let recipe: Recipe
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var authViewModel: AuthViewModel
     @GestureState private var dragOffset: CGFloat = 0
     @State private var isActive = true
     
@@ -11,7 +14,11 @@ struct RecipeVideoView: View {
             VideoCard(
                 recipe: recipe,
                 isVisible: isActive,
-                nextVideoURL: nil
+                nextVideoURL: nil,
+                viewModel: FeedViewModel(
+                    modelContext: modelContext,
+                    authViewModel: authViewModel
+                )
             )
             .offset(y: dragOffset)
             .opacity(calculateOpacity(dragOffset: dragOffset))
@@ -60,4 +67,25 @@ struct RecipeVideoView: View {
         let opacity = 1.0 - (abs(dragOffset) / maxOffset) * 0.5 // Fade to 50% opacity
         return max(0.5, opacity) // Don't go below 50% opacity
     }
+}
+
+#Preview {
+    let container = try! ModelContainer(
+        for: Recipe.self,
+        configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+    )
+    
+    return RecipeVideoView(recipe: Recipe(
+        id: "test",
+        title: "Test Recipe",
+        description: "A test recipe",
+        cookingTime: 30,
+        cuisineType: "Italian",
+        ingredients: ["Test ingredient"],
+        steps: ["Test step"],
+        videoURL: "https://example.com/video.mp4",
+        thumbnailURL: "https://example.com/thumbnail.jpg"
+    ))
+    .modelContainer(container)
+    .environmentObject(AuthViewModel())
 } 

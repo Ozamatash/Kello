@@ -1,10 +1,19 @@
 import SwiftUI
+import SwiftData
 
 struct VideoCard: View {
     let recipe: Recipe
     let isVisible: Bool
     let nextVideoURL: String?
+    @StateObject private var viewModel: FeedViewModel
     @State private var showingDetails = false
+    
+    init(recipe: Recipe, isVisible: Bool, nextVideoURL: String?, viewModel: FeedViewModel) {
+        self.recipe = recipe
+        self.isVisible = isVisible
+        self.nextVideoURL = nextVideoURL
+        _viewModel = StateObject(wrappedValue: viewModel)
+    }
     
     var body: some View {
         GeometryReader { geometry in
@@ -20,6 +29,7 @@ struct VideoCard: View {
                 // Content overlay
                 RecipeOverlay(
                     recipe: recipe,
+                    viewModel: viewModel,
                     onDetailsPressed: {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                             showingDetails = true
@@ -47,7 +57,9 @@ struct VideoCard: View {
 
 private struct RecipeOverlay: View {
     let recipe: Recipe
+    @ObservedObject var viewModel: FeedViewModel
     let onDetailsPressed: () -> Void
+    @State private var isLiking = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -77,8 +89,31 @@ private struct RecipeOverlay: View {
                 
                 // Engagement metrics and details button
                 HStack(spacing: 20) {
-                    Label("\(recipe.likes)", systemImage: "heart.fill")
-                        .foregroundColor(.red)
+                    Button(action: {
+                        guard !isLiking else { return }
+                        isLiking = true
+                        
+                        // Find the index of this recipe
+                        if let index = viewModel.recipes.firstIndex(where: { $0.id == recipe.id }) {
+                            Task {
+                                do {
+                                    try await viewModel.likeRecipe(at: index)
+                                } catch {
+                                    print("Error liking recipe: \(error)")
+                                }
+                                isLiking = false
+                            }
+                        }
+                    }) {
+                        Label(
+                            "\(recipe.likes)",
+                            systemImage: viewModel.isRecipeLiked(recipe.id) ? "heart.fill" : "heart"
+                        )
+                        .foregroundColor(viewModel.isRecipeLiked(recipe.id) ? .red : .white)
+                        .opacity(isLiking ? 0.5 : 1.0)
+                    }
+                    .disabled(isLiking)
+                    
                     Label("\(recipe.comments)", systemImage: "message.fill")
                         .foregroundColor(.blue)
                     Label("\(recipe.shares)", systemImage: "square.and.arrow.up")
@@ -116,6 +151,11 @@ private struct RecipeOverlay: View {
 }
 
 #Preview {
+    let container = try! ModelContainer(
+        for: Recipe.self,
+        configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+    )
+    
     VideoCard(
         recipe: Recipe(
             id: "test",
@@ -133,7 +173,11 @@ private struct RecipeOverlay: View {
             fat: 10
         ),
         isVisible: true,
-        nextVideoURL: nil
+        nextVideoURL: nil,
+        viewModel: FeedViewModel(
+            modelContext: container.mainContext,
+            authViewModel: AuthViewModel()
+        )
     )
     .frame(height: 400)
     .background(Color.black)

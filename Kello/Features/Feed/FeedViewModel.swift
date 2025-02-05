@@ -2,28 +2,47 @@ import Foundation
 import SwiftData
 import Combine
 
-@Observable
-class FeedViewModel {
+class FeedViewModel: ObservableObject {
     // MARK: - Properties
     
     private let modelContext: ModelContext
     private let firebaseService = FirebaseService.shared
+    private let authViewModel: AuthViewModel
     
-    var recipes: [Recipe] = []
-    var isLoading = false
-    var error: Error?
+    @Published var recipes: [Recipe] = []
+    @Published var isLoading = false
+    @Published var error: Error?
     
     // Filters
-    var selectedTimeFilter: CookingTimeFilter?
-    var selectedCuisine: String?
+    @Published var selectedTimeFilter: CookingTimeFilter?
+    @Published var selectedCuisine: String?
+    
+    // Like state tracking
+    @Published var likedRecipeIds: Set<String> = []
     
     // MARK: - Initialization
     
-    init(modelContext: ModelContext) {
+    init(modelContext: ModelContext, authViewModel: AuthViewModel) {
         self.modelContext = modelContext
+        self.authViewModel = authViewModel
+        Task {
+            await loadLikedRecipes()
+        }
     }
     
     // MARK: - Public Methods
+    
+    @MainActor
+    private func loadLikedRecipes() async {
+        if let userProfile = await authViewModel.userProfile {
+            likedRecipeIds = Set(userProfile.likedRecipes)
+        }
+    }
+    
+    @MainActor
+    func isRecipeLiked(_ recipeId: String) -> Bool {
+        return likedRecipeIds.contains(recipeId)
+    }
     
     @MainActor
     func loadInitialRecipes() async {
@@ -80,8 +99,19 @@ class FeedViewModel {
         guard index < recipes.count else { return }
         let recipe = recipes[index]
         
-        try await firebaseService.likeRecipe(recipe.id)
-        recipes[index].likes += 1
+        if isRecipeLiked(recipe.id) {
+            // Unlike
+            try await firebaseService.unlikeRecipe(recipe.id)
+            await authViewModel.unlikeRecipe(recipe.id)
+            recipes[index].likes -= 1
+            likedRecipeIds.remove(recipe.id)
+        } else {
+            // Like
+            try await firebaseService.likeRecipe(recipe.id)
+            await authViewModel.likeRecipe(recipe.id)
+            recipes[index].likes += 1
+            likedRecipeIds.insert(recipe.id)
+        }
     }
     
     func shareRecipe(at index: Int) {

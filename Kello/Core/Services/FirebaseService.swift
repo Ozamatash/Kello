@@ -12,6 +12,15 @@ class FirebaseService {
     
     // MARK: - Recipe Operations
     
+    func fetchRecipesByIds(_ ids: [String]) async throws -> [Recipe] {
+        let snapshot = try await config.firestore
+            .collection("recipes")
+            .whereField(FieldPath.documentID(), in: ids)
+            .getDocuments()
+        
+        return try await decodeRecipes(from: snapshot.documents)
+    }
+    
     func fetchRecipes(limit: Int = 10) async throws -> [Recipe] {
         let snapshot = try await config.firestore
             .collection("recipes")
@@ -136,6 +145,15 @@ class FirebaseService {
             .document(recipeId)
             .updateData([
                 "likes": FieldValue.increment(Int64(1))
+            ])
+    }
+    
+    func unlikeRecipe(_ recipeId: String) async throws {
+        try await config.firestore
+            .collection("recipes")
+            .document(recipeId)
+            .updateData([
+                "likes": FieldValue.increment(Int64(-1))
             ])
     }
     

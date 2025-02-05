@@ -7,8 +7,8 @@ struct FeedView: View {
     @GestureState private var dragOffset: CGFloat = 0
     let isTabActive: Bool
     
-    init(modelContext: ModelContext, isTabActive: Bool) {
-        _viewModel = State(initialValue: FeedViewModel(modelContext: modelContext))
+    init(modelContext: ModelContext, isTabActive: Bool, authViewModel: AuthViewModel) {
+        _viewModel = State(initialValue: FeedViewModel(modelContext: modelContext, authViewModel: authViewModel))
         self.isTabActive = isTabActive
     }
     
@@ -77,7 +77,8 @@ struct FeedView: View {
                     recipe: viewModel.recipes[index],
                     isVisible: isTabActive && index == currentIndex,
                     nextVideoURL: index < viewModel.recipes.count - 1 ? 
-                        viewModel.recipes[index + 1].videoURL : nil
+                        viewModel.recipes[index + 1].videoURL : nil,
+                    viewModel: viewModel
                 )
                 .offset(y: calculateOffset(for: index))
                 .gesture(createSwipeGesture())
