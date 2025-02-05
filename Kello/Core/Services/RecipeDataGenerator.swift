@@ -267,6 +267,21 @@ class RecipeDataGenerator {
         let ingredients = generateIngredients(for: meal.title)
         let description = "A delicious \(meal.type.lowercased()) recipe that's perfect for any \(meal.type.lowercased()) occasion."
         
+        // Generate enhanced ingredientsText for better semantic search
+        let ingredientsList = ingredients.joined(separator: ", ")
+        let stepsText = generateSteps(count: Int.random(in: 4...8)).joined(separator: " ")
+        let cuisineType = cuisineTypes.randomElement()!
+        let cookingTimeText = meal.time < 15 ? "quick and easy" :
+                            meal.time < 30 ? "medium preparation time" :
+                            "longer preparation time"
+        
+        let ingredientsText = """
+            \(meal.title). \(description) This \(cuisineType) \(meal.type.lowercased()) recipe takes \(meal.time) minutes (\(cookingTimeText)).
+            Ingredients needed: \(ingredientsList).
+            Cooking instructions: \(stepsText).
+            Perfect for \(meal.type.lowercased()) time, this recipe offers a \(cookingTimeText) cooking experience.
+            """
+        
         return [
             "id": UUID().uuidString,
             "title": meal.title,
@@ -275,6 +290,7 @@ class RecipeDataGenerator {
             "cuisineType": cuisineTypes.randomElement()!,
             "mealType": meal.type,
             "ingredients": ingredients,
+            "ingredientsText": ingredientsText,
             "steps": generateSteps(count: Int.random(in: 4...8)),
             "videoURL": videoURL,
             "thumbnailURL": foodThumbnails.randomElement()!,
