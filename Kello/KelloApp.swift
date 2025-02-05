@@ -12,7 +12,7 @@ import FirebaseAuth
 
 @main
 struct KelloApp: App {
-    @StateObject private var authState = AuthState()
+    @StateObject private var authViewModel = AuthViewModel()
     
     init() {
         FirebaseConfig.shared.configure()
@@ -30,10 +30,7 @@ struct KelloApp: App {
             queue: .main
         ) { _ in
             URLCache.shared.removeAllCachedResponses()
-            print("🧹 Cleared URL cache due to memory warning")
         }
-        
-        print("📦 URL Cache configured - Memory: \(ByteCountFormatter.string(fromByteCount: Int64(memoryCapacity), countStyle: .file)), Disk: \(ByteCountFormatter.string(fromByteCount: Int64(diskCapacity), countStyle: .file))")
     }
     
     var sharedModelContainer: ModelContainer = {
@@ -51,23 +48,16 @@ struct KelloApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .task {
-                    await signInAnonymously()
+            Group {
+                if authViewModel.isAuthenticated {
+                    ContentView()
+                        .environmentObject(authViewModel)
+                } else {
+                    SignInView()
+                        .environmentObject(authViewModel)
                 }
-        }
-        .modelContainer(sharedModelContainer)
-    }
-    
-    private func signInAnonymously() async {
-        do {
-            if Auth.auth().currentUser == nil {
-                print("🔑 No user found, signing in anonymously...")
-                try await Auth.auth().signInAnonymously()
-                print("✅ Anonymous authentication successful")
             }
-        } catch {
-            print("❌ Anonymous authentication failed: \(error.localizedDescription)")
+            .modelContainer(sharedModelContainer)
         }
     }
 }
