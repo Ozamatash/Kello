@@ -3,6 +3,7 @@ import SwiftUI
 struct VideoCard: View {
     let recipe: Recipe
     let isVisible: Bool
+    let nextVideoURL: String?
     @State private var showingDetails = false
     
     var body: some View {
@@ -11,6 +12,7 @@ struct VideoCard: View {
                 // Video Player
                 VideoPlayerView(
                     videoURL: recipe.videoURL,
+                    nextVideoURL: nextVideoURL,
                     isVisible: isVisible
                 )
                 .frame(width: geometry.size.width, height: geometry.size.height)
@@ -130,7 +132,8 @@ private struct RecipeOverlay: View {
             carbs: 30,
             fat: 10
         ),
-        isVisible: true
+        isVisible: true,
+        nextVideoURL: nil
     )
     .frame(height: 400)
     .background(Color.black)

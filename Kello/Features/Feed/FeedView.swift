@@ -43,6 +43,12 @@ struct FeedView: View {
                 currentIndex = newValue - 1
             }
         }
+        .onChange(of: isTabActive) { oldValue, newValue in
+            // Reset video state when tab becomes inactive
+            if !newValue {
+                currentIndex = max(0, currentIndex)
+            }
+        }
         .task {
             await viewModel.loadInitialRecipes()
         }
@@ -69,7 +75,9 @@ struct FeedView: View {
             ) { index in
                 VideoCard(
                     recipe: viewModel.recipes[index],
-                    isVisible: isTabActive && index == currentIndex
+                    isVisible: isTabActive && index == currentIndex,
+                    nextVideoURL: index < viewModel.recipes.count - 1 ? 
+                        viewModel.recipes[index + 1].videoURL : nil
                 )
                 .offset(y: calculateOffset(for: index))
                 .gesture(createSwipeGesture())
@@ -80,6 +88,11 @@ struct FeedView: View {
     
     private var visibleIndices: [Int] {
         guard !viewModel.recipes.isEmpty else { return [] }
+        
+        // Only show current video when tab is not active
+        if !isTabActive {
+            return [currentIndex]
+        }
         
         // Ensure currentIndex is within bounds
         let safeCurrentIndex = min(max(0, currentIndex), viewModel.recipes.count - 1)

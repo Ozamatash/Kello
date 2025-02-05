@@ -4,179 +4,121 @@ import AVFoundation
 
 struct VideoPlayerView: View {
     let videoURL: String
+    let nextVideoURL: String?
     let isVisible: Bool
-    @State private var player: AVPlayer?
-    @State private var isLoading = true
-    @State private var error: Error?
+    @State private var queuePlayer: AVQueuePlayer?
+    @State private var isPlaying = true
     
-    // Add debug logging
-    private func logPlayerStatus() {
-        guard let player = player, let currentItem = player.currentItem else { return }
-        
-        print("=== Video Player Debug Info ===")
-        print("URL: \(videoURL)")
-        print("Player Status: \(player.status.rawValue)")
-        print("Item Status: \(currentItem.status.rawValue)")
-        print("Item Duration: \(currentItem.duration.seconds)")
-        print("Item Tracks: \(currentItem.tracks.count)")
-        print("Is Visible: \(isVisible)")
-        if let error = currentItem.error {
-            print("Item Error: \(error)")
-        }
-        print("===========================")
-    }
+    // Track preloaded assets
+    @State private var currentAsset: AVAsset?
+    @State private var nextAsset: AVAsset?
     
     var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                if let error = error {
-                    VStack {
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.largeTitle)
-                            .foregroundColor(.white)
-                        Text("Failed to load video")
-                            .foregroundColor(.white)
-                        Text(error.localizedDescription)
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.7))
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal)
+        ZStack {
+            if let player = queuePlayer {
+                VideoPlayer(player: player)
+                    .edgesIgnoringSafeArea(.all)
+                    .aspectRatio(contentMode: .fill)
+                    // Add black background to avoid any potential gaps
+                    .background(Color.black)
+                    // Clip any content that overflows
+                    .clipped()
+                    // Add tap gesture overlay
+                    .overlay(Color.black.opacity(0.001))
+                    .onTapGesture {
+                        if isPlaying {
+                            player.pause()
+                        } else {
+                            player.play()
+                        }
+                        isPlaying.toggle()
                     }
-                } else if let player = player {
-                    PlayerContainerView(player: player)
-                        .frame(width: geometry.size.width, height: geometry.size.height)
-                        .edgesIgnoringSafeArea(.all)
-                } else if isLoading {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                }
+                    // Play/pause indicator
+                    .overlay {
+                        Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                            .font(.system(size: 50))
+                            .foregroundColor(.white.opacity(0.8))
+                            .opacity(isPlaying ? 0 : 1)
+                    }
+            } else {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.black)
         }
-        .onAppear {
-            setupAudioSession()
-            setupPlayer()
+        .background(Color.black)
+        .task {
+            await preloadAssets()
         }
-        .onChange(of: isVisible) { oldValue, newValue in
-            handleVisibilityChange(isVisible: newValue)
-        }
-    }
-    
-    private func setupAudioSession() {
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
-            try AVAudioSession.sharedInstance().setActive(true)
-        } catch {
-            print("Failed to set up audio session: \(error)")
-        }
-    }
-    
-    private func handleVisibilityChange(isVisible: Bool) {
-        guard let player = player else { return }
-        
-        if isVisible {
-            // Reset the player item when becoming visible
-            if player.currentItem?.status == .failed {
-                replacePlayerItem()
+        .onChange(of: isVisible) { _, newValue in
+            if newValue {
+                setupPlayer()
+            } else {
+                cleanup()
             }
-            player.seek(to: .zero)
-            player.volume = 1.0
-            player.play()
-            logPlayerStatus()
-        } else {
-            player.pause()
-            player.volume = 0.0
         }
     }
     
-    private func replacePlayerItem() {
-        guard let player = player,
-              let currentItem = player.currentItem,
-              let asset = currentItem.asset as? AVURLAsset else { return }
-        
-        // Create a new player item with the same asset
-        let newPlayerItem = AVPlayerItem(asset: asset)
-        player.replaceCurrentItem(with: newPlayerItem)
-    }
-    
-    private func createPlayer(from urlString: String) async throws -> AVPlayer {
-        guard let url = URL(string: urlString) else {
-            throw NSError(domain: "VideoPlayerError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
+    private func preloadAssets() async {
+        // Preload current video
+        if let url = URL(string: videoURL) {
+            let asset = AVURLAsset(url: url)
+            await asset.loadValues(forKeys: ["playable", "duration"])
+            currentAsset = asset
         }
         
-        // Create a cacheable request
-        var request = URLRequest(url: url)
-        request.cachePolicy = .returnCacheDataElseLoad
-        request.timeoutInterval = 30
-        
-        // Check if we have cached data
-        if let cachedResponse = URLCache.shared.cachedResponse(for: request) {
-            print("📦 Using cached video data: \(ByteCountFormatter.string(fromByteCount: Int64(cachedResponse.data.count), countStyle: .file))")
-        } else {
-            print("🌐 No cached data available, loading from network")
+        // Preload next video if available
+        if let nextURL = nextVideoURL,
+           let url = URL(string: nextURL) {
+            let asset = AVURLAsset(url: url)
+            await asset.loadValues(forKeys: ["playable", "duration"])
+            nextAsset = asset
         }
-        
-        // Create session configuration with caching
-        let configuration = URLSessionConfiguration.default
-        configuration.requestCachePolicy = .returnCacheDataElseLoad
-        configuration.urlCache = URLCache.shared
-        
-        // Load the data with caching
-        let session = URLSession(configuration: configuration)
-        let (data, response) = try await session.data(for: request)
-        
-        // Cache the response if it's not already cached
-        if URLCache.shared.cachedResponse(for: request) == nil {
-            let cachedResponse = CachedURLResponse(
-                response: response,
-                data: data,
-                storagePolicy: .allowed
-            )
-            URLCache.shared.storeCachedResponse(cachedResponse, for: request)
-            print("💾 Cached video data: \(ByteCountFormatter.string(fromByteCount: Int64(data.count), countStyle: .file))")
-        }
-        
-        // Create a temporary file to store the video data
-        let tempDirectory = FileManager.default.temporaryDirectory
-        let tempFileURL = tempDirectory.appendingPathComponent(UUID().uuidString + ".mp4")
-        try data.write(to: tempFileURL)
-        
-        // Create asset from the temporary file
-        let asset = AVURLAsset(url: tempFileURL)
-        
-        // Preload essential properties
-        await asset.loadValues(forKeys: ["playable", "duration"])
-        
-        let playerItem = AVPlayerItem(asset: asset)
-        playerItem.preferredForwardBufferDuration = 10
-        
-        // Create player and set it to automatically loop
-        let player = AVPlayer(playerItem: playerItem)
-        player.actionAtItemEnd = .none // Prevent player from stopping at end
-        
-        return player
     }
     
     private func setupPlayer() {
-        Task {
-            do {
-                let player = try await createPlayer(from: videoURL)
-                
-                await MainActor.run {
-                    self.player = player
-                    self.isLoading = false
-                    // Immediately handle visibility after player is created
-                    handleVisibilityChange(isVisible: isVisible)
-                }
-            } catch {
-                print("❌ Player setup error: \(error)")
-                await MainActor.run {
-                    self.error = error
-                    isLoading = false
-                }
+        guard queuePlayer == nil else { return }
+        
+        // Create player items from preloaded assets
+        let currentItem: AVPlayerItem
+        if let asset = currentAsset {
+            currentItem = AVPlayerItem(asset: asset)
+        } else if let url = URL(string: videoURL) {
+            currentItem = AVPlayerItem(url: url)
+        } else {
+            return
+        }
+        
+        let player = AVQueuePlayer(playerItem: currentItem)
+        
+        // Add preloaded next item if available
+        if let nextAsset = nextAsset {
+            let nextItem = AVPlayerItem(asset: nextAsset)
+            player.insert(nextItem, after: currentItem)
+        }
+        
+        // Enable looping
+        player.actionAtItemEnd = .advance
+        NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: currentItem,
+            queue: .main
+        ) { _ in
+            // Create a new item for looping
+            if let asset = currentAsset {
+                let newItem = AVPlayerItem(asset: asset)
+                player.insert(newItem, after: nil)
             }
         }
+        
+        self.queuePlayer = player
+        player.play()
+    }
+    
+    private func cleanup() {
+        queuePlayer?.pause()
+        queuePlayer?.removeAllItems()
+        queuePlayer = nil
+        isPlaying = false
     }
 }
 
@@ -207,6 +149,25 @@ final class PlayerContainerViewController: UIViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         playerLayer?.frame = view.bounds
+    }
+    
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        cleanup()
+    }
+    
+    private func cleanup() {
+        statusObserver?.invalidate()
+        loadedTimeRangesObserver?.invalidate()
+        if let loopObserver = loopObserver {
+            NotificationCenter.default.removeObserver(loopObserver)
+        }
+        playerLayer?.removeFromSuperlayer()
+        playerLayer = nil
+    }
+    
+    deinit {
+        cleanup()
     }
     
     private func setupPlayer() {
@@ -267,14 +228,6 @@ final class PlayerContainerViewController: UIViewController {
             print("Buffered from \(bufferedStart)s to \(bufferedStart + bufferedDuration)s")
         }
     }
-    
-    deinit {
-        statusObserver?.invalidate()
-        loadedTimeRangesObserver?.invalidate()
-        if let loopObserver = loopObserver {
-            NotificationCenter.default.removeObserver(loopObserver)
-        }
-    }
 }
 
 // Bridge between SwiftUI and UIKit
@@ -293,7 +246,7 @@ struct PlayerContainerView: UIViewControllerRepresentable {
 // Preview provider for development
 struct VideoPlayerView_Previews: PreviewProvider {
     static var previews: some View {
-        VideoPlayerView(videoURL: "https://example.com/sample.mp4", isVisible: true)
+        VideoPlayerView(videoURL: "https://example.com/sample.mp4", nextVideoURL: nil, isVisible: true)
             .frame(height: 400)
             .background(Color.black)
     }
