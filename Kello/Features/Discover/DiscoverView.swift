@@ -117,7 +117,7 @@ struct DiscoverView: View {
             }
             .searchable(
                 text: $searchTerm,
-                prompt: "Search recipes by ingredients..."
+                prompt: "Search using natural language..."
             )
             .onChange(of: searchTerm) { _, newValue in
                 // Cancel any existing search task
