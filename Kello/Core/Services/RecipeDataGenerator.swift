@@ -114,13 +114,19 @@ class RecipeDataGenerator {
             shares: Int.random(in: 0...50)
         )
         
+        let ingredients = generateIngredients(count: Int.random(in: 5...12))
+        let description = "A delicious \(meal.type.lowercased()) recipe that's perfect for any \(meal.type.lowercased()) occasion."
+        
+        // Create the ingredientsText that will be used for vector search
+        let ingredientsText = "\(meal.title). \(description). Ingredients: \(ingredients.joined(separator: ", "))"
+        
         return [
             "id": UUID().uuidString,
             "title": meal.title,
-            "description": "A delicious \(meal.type.lowercased()) recipe that's perfect for any \(meal.type.lowercased()) occasion.",
+            "description": description,
             "cookingTime": meal.time,
             "cuisineType": cuisineTypes.randomElement()!,
-            "ingredients": generateIngredients(count: Int.random(in: 5...12)),
+            "ingredients": ingredients,
             "steps": generateSteps(count: Int.random(in: 4...8)),
             "videoURL": videoURL,
             "thumbnailURL": "https://example.com/\(meal.title.lowercased().replacingOccurrences(of: " ", with: "-")).jpg",
@@ -132,7 +138,10 @@ class RecipeDataGenerator {
             "calories": nutrition.calories,
             "protein": nutrition.protein,
             "carbs": nutrition.carbs,
-            "fat": nutrition.fat
+            "fat": nutrition.fat,
+            "ingredientsText": ingredientsText,  // Add the text field for vector search
+            "embedding": NSNull(),  // This will be populated by the Vector Search extension
+            "embeddingStatus": NSNull()  // This will be populated by the Vector Search extension
         ]
     }
     

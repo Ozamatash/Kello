@@ -15,6 +15,7 @@
 		86ABC5402D513B6500DFDE6D /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 86ABC53F2D513B6500DFDE6D /* FirebaseFirestore */; };
 		86ABC5422D513B6500DFDE6D /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 86ABC5412D513B6500DFDE6D /* FirebaseStorage */; };
 		86ABC5442D513EFB00DFDE6D /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 86ABC5432D513EFB00DFDE6D /* GoogleService-Info.plist */; };
+		86D45A082D53B00300F94DFC /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = 86D45A072D53B00300F94DFC /* FirebaseFunctions */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -104,6 +105,7 @@
 				86ABC53E2D513B6500DFDE6D /* FirebaseAuth in Frameworks */,
 				86ABC5402D513B6500DFDE6D /* FirebaseFirestore in Frameworks */,
 				86ABC5422D513B6500DFDE6D /* FirebaseStorage in Frameworks */,
+				86D45A082D53B00300F94DFC /* FirebaseFunctions in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -192,6 +194,7 @@
 				86ABC53D2D513B6500DFDE6D /* FirebaseAuth */,
 				86ABC53F2D513B6500DFDE6D /* FirebaseFirestore */,
 				86ABC5412D513B6500DFDE6D /* FirebaseStorage */,
+				86D45A072D53B00300F94DFC /* FirebaseFunctions */,
 			);
 			productName = Kello;
 			productReference = 86ABC4D32D51269300DFDE6D /* Kello.app */;
@@ -729,6 +732,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 86ABC53C2D513B6500DFDE6D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseStorage;
+		};
+		86D45A072D53B00300F94DFC /* FirebaseFunctions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 86ABC53C2D513B6500DFDE6D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFunctions;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

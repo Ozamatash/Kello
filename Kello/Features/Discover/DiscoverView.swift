@@ -1,157 +1,92 @@
 import SwiftUI
 
 struct DiscoverView: View {
-    @StateObject private var viewModel = DiscoverViewModel()
+    @State private var searchTerm = ""
+    @State private var recipes: [Recipe] = []
+    @State private var isSearching = false
+    @State private var searchError: Error?
+    
+    private let searchService = RecipeSearchService()
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 16) {
-                filterSection
-                Divider()
-                contentSection
-            }
-            .navigationTitle("Discover")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    clearFiltersButton
-                }
-            }
-        }
-    }
-    
-    // MARK: - Filter Section
-    
-    private var filterSection: some View {
-        VStack(spacing: 16) {
-            timeFilterSection
-            cuisineFilterSection
-            mealTypeFilterSection
-        }
-    }
-    
-    private var timeFilterSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Cooking Time")
-                .font(.headline)
-                .padding(.horizontal)
-            
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(CookingTimeFilter.allCases) { filter in
-                        FilterChip(
-                            title: filter.displayText,
-                            isSelected: viewModel.selectedTimeFilter == filter
-                        ) {
-                            viewModel.selectTimeFilter(filter)
+            VStack {
+                if isSearching {
+                    ProgressView("Searching recipes...")
+                } else if let error = searchError {
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.largeTitle)
+                            .foregroundColor(.orange)
+                        Text("Search failed")
+                            .font(.headline)
+                        Text(error.localizedDescription)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+                    .padding()
+                } else if recipes.isEmpty && !searchTerm.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.largeTitle)
+                            .foregroundColor(.secondary)
+                        Text("No recipes found")
+                            .font(.headline)
+                        Text("Try different ingredients or a different search term")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                } else {
+                    ScrollView {
+                        LazyVGrid(columns: [
+                            GridItem(.flexible(), spacing: 16),
+                            GridItem(.flexible(), spacing: 16)
+                        ], spacing: 16) {
+                            ForEach(recipes) { recipe in
+                                RecipeCard(recipe: recipe)
+                            }
                         }
+                        .padding()
                     }
                 }
-                .padding(.horizontal)
             }
-        }
-    }
-    
-    private var cuisineFilterSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Cuisine Type")
-                .font(.headline)
-                .padding(.horizontal)
-            
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(viewModel.availableCuisines, id: \.self) { cuisine in
-                        FilterChip(
-                            title: cuisine,
-                            isSelected: viewModel.selectedCuisine == cuisine
-                        ) {
-                            viewModel.selectCuisine(cuisine)
-                        }
-                    }
+            .searchable(
+                text: $searchTerm,
+                prompt: "Search recipes by ingredients..."
+            )
+            .onChange(of: searchTerm) { _, newValue in
+                // Don't search if the term is empty
+                guard !newValue.isEmpty else {
+                    recipes = []
+                    return
                 }
-                .padding(.horizontal)
-            }
-        }
-    }
-    
-    private var mealTypeFilterSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Meal Type")
-                .font(.headline)
-                .padding(.horizontal)
-            
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(MealType.allCases) { type in
-                        FilterChip(
-                            title: type.rawValue,
-                            isSelected: viewModel.selectedMealType == type
-                        ) {
-                            viewModel.selectMealType(type)
-                        }
-                    }
-                }
-                .padding(.horizontal)
-            }
-        }
-    }
-    
-    private var clearFiltersButton: some View {
-        Group {
-            if viewModel.hasActiveFilters {
-                Button("Clear All") {
-                    viewModel.clearFilters()
-                }
-                .foregroundColor(.accentColor)
-            }
-        }
-    }
-    
-    // MARK: - Content Section
-    
-    private var contentSection: some View {
-        Group {
-            if viewModel.isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if viewModel.recipes.isEmpty {
-                emptyState
-            } else {
-                recipeGrid
-            }
-        }
-    }
-    
-    private var recipeGrid: some View {
-        ScrollView {
-            LazyVGrid(
-                columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
-                ],
-                spacing: 16
-            ) {
-                ForEach(viewModel.recipes, id: \.id) { recipe in
-                    RecipeCard(recipe: recipe)
+                
+                // Debounce the search
+                Task {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    guard !Task.isCancelled else { return }
+                    
+                    await search()
                 }
             }
-            .padding()
+            .navigationTitle("Discover Recipes")
         }
     }
     
-    private var emptyState: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "fork.knife")
-                .font(.system(size: 48))
-                .foregroundColor(.gray)
-            
-            Text("No recipes found")
-                .font(.headline)
-            Text("Try different filters")
-                .font(.subheadline)
-                .foregroundColor(.gray)
+    private func search() async {
+        isSearching = true
+        searchError = nil
+        
+        do {
+            recipes = try await searchService.searchRecipes(searchTerm: searchTerm)
+        } catch {
+            searchError = error
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        
+        isSearching = false
     }
 }
 
@@ -218,6 +153,9 @@ struct RecipeCard: View {
     }
 }
 
-#Preview {
-    DiscoverView()
+// Preview provider
+struct DiscoverView_Previews: PreviewProvider {
+    static var previews: some View {
+        DiscoverView()
+    }
 } 

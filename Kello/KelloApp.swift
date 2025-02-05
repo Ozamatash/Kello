@@ -8,11 +8,14 @@
 import SwiftUI
 import SwiftData
 import FirebaseCore
+import FirebaseAuth
 
 @main
 struct KelloApp: App {
+    @StateObject private var authState = AuthState()
+    
     init() {
-        FirebaseApp.configure()
+        FirebaseConfig.shared.configure()
         
         // Configure URL cache with larger capacity
         let memoryCapacity = 100 * 1024 * 1024    // 100 MB memory cache
@@ -49,7 +52,22 @@ struct KelloApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .task {
+                    await signInAnonymously()
+                }
         }
         .modelContainer(sharedModelContainer)
+    }
+    
+    private func signInAnonymously() async {
+        do {
+            if Auth.auth().currentUser == nil {
+                print("🔑 No user found, signing in anonymously...")
+                try await Auth.auth().signInAnonymously()
+                print("✅ Anonymous authentication successful")
+            }
+        } catch {
+            print("❌ Anonymous authentication failed: \(error.localizedDescription)")
+        }
     }
 }

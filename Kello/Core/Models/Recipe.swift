@@ -26,6 +26,16 @@ class Recipe: Identifiable, Equatable {
     var carbs: Double?
     var fat: Double?
     
+    // Vector Search fields
+    var embedding: [Double]?
+    var embeddingStatus: String?
+    
+    // Computed property for semantic search
+    var ingredientsText: String {
+        let ingredientsList = ingredients.joined(separator: ", ")
+        return "\(title). \(recipeDescription). Ingredients: \(ingredientsList)"
+    }
+    
     // MARK: - Equatable
     
     static func == (lhs: Recipe, rhs: Recipe) -> Bool {
@@ -44,7 +54,9 @@ class Recipe: Identifiable, Equatable {
          calories: Int? = nil,
          protein: Double? = nil,
          carbs: Double? = nil,
-         fat: Double? = nil) {
+         fat: Double? = nil,
+         embedding: [Double]? = nil,
+         embeddingStatus: String? = nil) {
         self.id = id
         self.title = title
         self.recipeDescription = description
@@ -63,5 +75,7 @@ class Recipe: Identifiable, Equatable {
         self.protein = protein
         self.carbs = carbs
         self.fat = fat
+        self.embedding = embedding
+        self.embeddingStatus = embeddingStatus
     }
 } 
