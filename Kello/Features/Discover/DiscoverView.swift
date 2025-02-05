@@ -187,13 +187,19 @@ struct RecipeCard: View {
         VStack(alignment: .leading, spacing: 8) {
             thumbnailImage
             recipeInfo
+                .padding(.horizontal, 8)
+                .padding(.bottom, 8)
         }
-        .frame(height: 200) // Fixed card height
-        .frame(maxWidth: .infinity)
-        .padding(8)
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(radius: 2)
+        .frame(height: 170) // Fixed card height
+        .frame(width: 160) // Fixed card width
+        .background {
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.secondarySystemGroupedBackground))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(.quaternary, lineWidth: 1)
+                }
+        }
         .onTapGesture {
             showingVideo = true
         }
@@ -208,28 +214,41 @@ struct RecipeCard: View {
                 .resizable()
                 .aspectRatio(contentMode: .fill)
         } placeholder: {
-            Color.gray
+            Color(.systemGray4)
         }
-        .frame(height: 120)
-        .aspectRatio(16/9, contentMode: .fill)
+        .frame(height: 100)  // Slightly reduced height
+        .frame(maxWidth: .infinity)
         .clipped()
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
     
     private var recipeInfo: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(recipe.title)
-                .font(.headline)
+                .font(.callout)  // Smaller font
+                .fontWeight(.medium)
                 .lineLimit(2)
-                .frame(height: 44) // Fixed height for 2 lines
+                .frame(height: 36)  // Adjusted for smaller font
             
-            HStack {
-                Label("\(recipe.cookingTime)m", systemImage: "clock")
-                Spacer()
-                Label(recipe.cuisineType, systemImage: "fork.knife")
+            HStack(spacing: 4) {  // Reduced spacing
+                Label {
+                    Text("\(recipe.cookingTime)m")
+                        .lineLimit(1)
+                } icon: {
+                    Image(systemName: "clock")
+                        .imageScale(.small)
+                }
+                Spacer(minLength: 4)
+                Label {
+                    Text(recipe.cuisineType)
+                        .lineLimit(1)
+                } icon: {
+                    Image(systemName: "fork.knife")
+                        .imageScale(.small)
+                }
             }
-            .font(.caption)
-            .foregroundColor(.gray)
+            .font(.caption2)  // Smaller font
+            .foregroundColor(.secondary)
         }
     }
 }
