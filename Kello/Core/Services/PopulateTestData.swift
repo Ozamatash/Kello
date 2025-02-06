@@ -10,52 +10,42 @@ class PopulateTestData {
     private init() {}
     
     private func uploadTestVideos() async throws -> [String] {
-        // More test videos from the public domain
-        let testVideoURLs = [
-            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
-            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
-            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4",
-            "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4"
-        ]
+        print("📂 Listing existing videos in Firebase Storage...")
+        let storageRef = storage.reference().child("videos")
         
+        // List all items in the videos folder
+        let result = try await storageRef.listAll()
+        
+        guard !result.items.isEmpty else {
+            throw NSError(domain: "PopulateTestData", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "No videos found in Firebase Storage videos folder"
+            ])
+        }
+        
+        print("📁 Found \(result.items.count) videos in Firebase Storage")
         var downloadURLs: [String] = []
         
-        for (index, videoURL) in testVideoURLs.enumerated() {
+        // Get download URLs for all videos
+        for item in result.items {
             do {
-                let storageRef = storage.reference().child("videos/test-video-\(index + 1).mp4")
-                print("📦 Created storage reference: \(storageRef)")
-                
-                print("🔗 Using test video URL: \(videoURL)")
-                
-                guard let url = URL(string: videoURL) else {
-                    throw NSError(domain: "PopulateTestData", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
-                }
-                
-                print("⬇️ Downloading video \(index + 1) data...")
-                guard let videoData = try? Data(contentsOf: url) else {
-                    throw NSError(domain: "PopulateTestData", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to download video data"])
-                }
-                print("✅ Video data downloaded: \(ByteCountFormatter.string(fromByteCount: Int64(videoData.count), countStyle: .file))")
-                
-                print("⬆️ Starting upload to Firebase Storage...")
-                let metadata = StorageMetadata()
-                metadata.contentType = "video/mp4"
-                _ = try await storageRef.putDataAsync(videoData, metadata: metadata)
-                print("✅ Upload completed")
-                
-                print("🔗 Getting download URL...")
-                let downloadURL = try await storageRef.downloadURL()
-                print("✅ Got download URL: \(downloadURL.absoluteString)")
-                
+                print("🔗 Getting download URL for \(item.name)...")
+                let downloadURL = try await item.downloadURL()
                 downloadURLs.append(downloadURL.absoluteString)
+                print("✅ Got download URL: \(downloadURL.absoluteString)")
             } catch {
-                print("❌ Upload error for video \(index + 1): \(error)")
-                throw error
+                print("⚠️ Failed to get download URL for \(item.name): \(error)")
+                // Continue with other videos even if one fails
+                continue
             }
         }
         
+        if downloadURLs.isEmpty {
+            throw NSError(domain: "PopulateTestData", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "No valid video URLs could be retrieved"
+            ])
+        }
+        
+        print("✅ Successfully retrieved \(downloadURLs.count) video URLs")
         return downloadURLs
     }
     
