@@ -7,6 +7,7 @@ struct VideoCard: View {
     let nextVideoURL: String?
     @StateObject private var viewModel: FeedViewModel
     @State private var showingDetails = false
+    @State private var showingComments = false
     
     init(recipe: Recipe, isVisible: Bool, nextVideoURL: String?, viewModel: FeedViewModel) {
         self.recipe = recipe
@@ -33,8 +34,14 @@ struct VideoCard: View {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                             showingDetails = true
                         }
+                    },
+                    onCommentsPressed: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            showingComments = true
+                        }
                     }
                 )
+                .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 50) }
                 
                 // Recipe Details Sheet
                 if showingDetails {
@@ -43,10 +50,30 @@ struct VideoCard: View {
                         .ignoresSafeArea()
                         .transition(.opacity)
                     
-                    RecipeDetailsSheet(
-                        recipe: recipe,
-                        isPresented: $showingDetails
-                    )
+                    GeometryReader { sheetGeometry in
+                        RecipeDetailsSheet(
+                            recipe: recipe,
+                            isPresented: $showingDetails
+                        )
+                        .frame(height: sheetGeometry.safeAreaInsets.bottom > 0 
+                               ? sheetGeometry.size.height - 100 // For devices with home indicator
+                               : sheetGeometry.size.height - 70) // For devices without home indicator
+                        .transition(.move(edge: .bottom))
+                    }
+                }
+                
+                // Comments Sheet
+                if showingComments {
+                    GeometryReader { sheetGeometry in
+                        CommentSheetView(
+                            viewModel: CommentsViewModel(recipeId: recipe.id),
+                            isPresented: $showingComments
+                        )
+                        .frame(height: sheetGeometry.safeAreaInsets.bottom > 0 
+                               ? sheetGeometry.size.height - 100 // For devices with home indicator
+                               : sheetGeometry.size.height - 70) // For devices without home indicator
+                        .transition(.move(edge: .bottom))
+                    }
                 }
             }
         }
@@ -58,41 +85,19 @@ private struct RecipeOverlay: View {
     let recipe: Recipe
     @ObservedObject var viewModel: FeedViewModel
     let onDetailsPressed: () -> Void
+    let onCommentsPressed: () -> Void
     @State private var isLiking = false
     
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-            
-            VStack(alignment: .leading, spacing: 16) {
-                // Title and description
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(recipe.title)
-                        .font(.title2)
-                        .bold()
-                        .foregroundColor(.white)
-                    
-                    Text(recipe.recipeDescription)
-                        .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.9))
-                        .lineLimit(2)
-                }
-                
-                // Cooking info
-                HStack(spacing: 16) {
-                    Label("\(recipe.cookingTime) min", systemImage: "clock")
-                    Label(recipe.cuisineType, systemImage: "fork.knife")
-                }
-                .font(.subheadline)
-                .foregroundColor(.white.opacity(0.9))
-                
-                // Engagement metrics and details button
-                HStack(spacing: 20) {
+        ZStack(alignment: .bottom) {
+            // Right side: Engagement buttons
+            VStack(spacing: 16) {
+                // Like Button
+                VStack(spacing: 2) {
                     Button(action: {
                         guard !isLiking else { return }
                         isLiking = true
                         
-                        // Find the index of this recipe
                         if let index = viewModel.recipes.firstIndex(where: { $0.id == recipe.id }) {
                             Task {
                                 do {
@@ -104,48 +109,77 @@ private struct RecipeOverlay: View {
                             }
                         }
                     }) {
-                        Label(
-                            "\(recipe.likes)",
-                            systemImage: viewModel.isRecipeLiked(recipe.id) ? "heart.fill" : "heart"
-                        )
-                        .foregroundColor(viewModel.isRecipeLiked(recipe.id) ? .red : .white)
-                        .opacity(isLiking ? 0.5 : 1.0)
+                        Image(systemName: recipe.isLikedByCurrentUser ? "heart.fill" : "heart")
+                            .font(.system(size: 26))
+                            .foregroundColor(recipe.isLikedByCurrentUser ? .red : .white)
                     }
-                    .disabled(isLiking)
                     
-                    Label("\(recipe.comments)", systemImage: "message.fill")
-                        .foregroundColor(.blue)
-                    Label("\(recipe.shares)", systemImage: "square.and.arrow.up")
-                        .foregroundColor(.green)
-                    Spacer()
-                    Button(action: onDetailsPressed) {
-                        Label("Details", systemImage: "list.bullet")
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(Color.white.opacity(0.2))
-                            .cornerRadius(16)
-                    }
+                    Text("\(recipe.likes)")
+                        .font(.caption)
+                        .bold()
+                        .foregroundColor(.white)
                 }
-                .font(.callout)
+                
+                // Comment Button
+                VStack(spacing: 2) {
+                    Button(action: onCommentsPressed) {
+                        Image(systemName: "bubble.left")
+                            .font(.system(size: 24))
+                            .foregroundColor(.white)
+                    }
+                    
+                    Text("\(recipe.comments)")
+                        .font(.caption)
+                        .bold()
+                        .foregroundColor(.white)
+                }
+                
+                // See Recipe Button
+                VStack(spacing: 2) {
+                    Button(action: onDetailsPressed) {
+                        Image(systemName: "list.clipboard")
+                            .font(.system(size: 24))
+                            .foregroundColor(.white)
+                    }
+                    
+                    Text("Recipe")
+                        .font(.caption)
+                        .bold()
+                        .foregroundColor(.white)
+                }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .padding(.bottom, 80)
-            .background(overlayGradient)
+            .padding(.trailing, 12)
+            .padding(.bottom, 30)
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            
+            // Bottom content
+            VStack(alignment: .leading, spacing: 8) {
+                // Title and description
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(recipe.title)
+                        .font(.title2)
+                        .bold()
+                        .foregroundColor(.white)
+                    
+                    Text(recipe.recipeDescription)
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.9))
+                        .lineLimit(2)
+                }
+                
+                // Cooking info row
+                HStack(spacing: 16) {
+                    Label("\(recipe.cookingTime) min", systemImage: "clock")
+                    Label(recipe.cuisineType, systemImage: "fork.knife")
+                }
+                .font(.subheadline)
+                .foregroundColor(.white.opacity(0.9))
+            }
+            .padding(.horizontal)
+            .padding(.trailing, 64)
+            .padding(.bottom, 30)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-    }
-    
-    private var overlayGradient: some View {
-        LinearGradient(
-            gradient: Gradient(colors: [
-                .clear,
-                .black.opacity(0.3),
-                .black.opacity(0.8)
-            ]),
-            startPoint: .top,
-            endPoint: .bottom
-        )
     }
 }
 

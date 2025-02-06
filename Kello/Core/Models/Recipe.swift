@@ -20,6 +20,7 @@ class Recipe: Identifiable, Equatable {
     var likes: Int
     var comments: Int
     var shares: Int
+    var isLikedByCurrentUser: Bool
     
     // Nutritional information
     var calories: Int?
@@ -58,7 +59,8 @@ class Recipe: Identifiable, Equatable {
          carbs: Double? = nil,
          fat: Double? = nil,
          embedding: [Double]? = nil,
-         embeddingStatus: String? = nil) {
+         embeddingStatus: String? = nil,
+         isLikedByCurrentUser: Bool = false) {
         self.id = id
         self.title = title
         self.recipeDescription = description
@@ -74,6 +76,7 @@ class Recipe: Identifiable, Equatable {
         self.likes = 0
         self.comments = 0
         self.shares = 0
+        self.isLikedByCurrentUser = isLikedByCurrentUser
         self.calories = calories
         self.protein = protein
         self.carbs = carbs

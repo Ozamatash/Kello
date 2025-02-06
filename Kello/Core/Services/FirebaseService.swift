@@ -4,6 +4,32 @@ import FirebaseFirestore
 import FirebaseStorage
 import Combine
 
+enum AuthError: LocalizedError {
+    case userNotFound
+    case invalidEmail
+    case weakPassword
+    case emailAlreadyInUse
+    case wrongPassword
+    case unknown(Error)
+    
+    var errorDescription: String? {
+        switch self {
+        case .userNotFound:
+            return "User not found. Please sign in first."
+        case .invalidEmail:
+            return "The email address is badly formatted."
+        case .weakPassword:
+            return "The password must be at least 6 characters long."
+        case .emailAlreadyInUse:
+            return "The email address is already in use."
+        case .wrongPassword:
+            return "The password is incorrect."
+        case .unknown(let error):
+            return error.localizedDescription
+        }
+    }
+}
+
 class FirebaseService {
     static let shared = FirebaseService()
     private let config = FirebaseConfig.shared
@@ -386,7 +412,8 @@ class FirebaseService {
             carbs: data["carbs"] as? Double,
             fat: data["fat"] as? Double,
             embedding: data["embedding"] as? [Double],
-            embeddingStatus: data["embeddingStatus"] as? String
+            embeddingStatus: data["embeddingStatus"] as? String,
+            isLikedByCurrentUser: false // Default to false, will be updated when checking likes
         )
         
         // Set timestamps
@@ -398,6 +425,93 @@ class FirebaseService {
         recipe.comments = data["comments"] as? Int ?? 0
         recipe.shares = data["shares"] as? Int ?? 0
         
+        // Check if the current user has liked this recipe
+        if let currentUser = config.auth.currentUser,
+           let likedBy = data["likedBy"] as? [String],
+           likedBy.contains(currentUser.uid) {
+            recipe.isLikedByCurrentUser = true
+        }
+        
         return recipe
+    }
+    
+    // Comments
+    func fetchComments(for recipeId: String) async throws -> [Comment] {
+        let commentsRef = config.firestore.collection("comments")
+            .whereField("recipeId", isEqualTo: recipeId)
+            .order(by: "timestamp", descending: true)
+            .limit(to: 50)
+        
+        let snapshot = try await commentsRef.getDocuments()
+        return snapshot.documents.compactMap { Comment(from: $0) }
+    }
+    
+    func addComment(to recipeId: String, text: String) async throws -> Comment {
+        guard let currentUser = config.auth.currentUser else {
+            throw AuthError.userNotFound
+        }
+        
+        let commentsRef = config.firestore.collection("comments")
+        let comment = Comment(
+            userId: currentUser.uid,
+            recipeId: recipeId,
+            text: text,
+            userDisplayName: currentUser.displayName ?? "Anonymous"
+        )
+        
+        try await commentsRef.document(comment.id).setData(comment.toDictionary())
+        return comment
+    }
+    
+    func likeComment(commentId: String) async throws {
+        guard let currentUser = config.auth.currentUser else {
+            throw AuthError.userNotFound
+        }
+        
+        let commentRef = config.firestore.collection("comments").document(commentId)
+        let likeRef = commentRef.collection("likes").document(currentUser.uid)
+        
+        try await config.firestore.runTransaction { transaction, _ -> Any? in
+            let commentDoc: DocumentSnapshot
+            do {
+                commentDoc = try transaction.getDocument(commentRef)
+            } catch {
+                return nil
+            }
+            
+            guard var likes = commentDoc.data()?["likes"] as? Int else { return nil }
+            
+            likes += 1
+            transaction.updateData(["likes": likes], forDocument: commentRef)
+            transaction.setData(["timestamp": Timestamp()], forDocument: likeRef)
+            
+            return nil
+        }
+    }
+    
+    func unlikeComment(commentId: String) async throws {
+        guard let currentUser = config.auth.currentUser else {
+            throw AuthError.userNotFound
+        }
+        
+        let commentRef = config.firestore.collection("comments").document(commentId)
+        let likeRef = commentRef.collection("likes").document(currentUser.uid)
+        
+        try await config.firestore.runTransaction { transaction, _ -> Any? in
+            let commentDoc: DocumentSnapshot
+            do {
+                commentDoc = try transaction.getDocument(commentRef)
+            } catch {
+                return nil
+            }
+            
+            guard var likes = commentDoc.data()?["likes"] as? Int else { return nil }
+            
+            likes = max(0, likes - 1)
+            transaction.updateData(["likes": likes], forDocument: commentRef)
+            transaction.deleteDocument(likeRef)
+            
+            return nil
+        }
     }
 } 
