@@ -21,7 +21,6 @@ struct VideoCard: View {
                 // Video Player
                 VideoPlayerView(
                     videoURL: recipe.videoURL,
-                    nextVideoURL: nextVideoURL,
                     isVisible: isVisible
                 )
                 .frame(width: geometry.size.width, height: geometry.size.height)

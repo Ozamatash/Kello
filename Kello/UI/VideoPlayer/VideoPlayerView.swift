@@ -1,32 +1,163 @@
 import SwiftUI
-import AVKit
 import AVFoundation
 
+/// A view model that loads a video asynchronously using AVFoundation,
+/// creates an AVPlayer, and—for short looping videos—automatically restarts playback.
+@MainActor
+class VideoPlayerViewModel: ObservableObject {
+    @Published var isReady = false
+    @Published var isPlaying = false
+
+    /// The underlying AVPlayer used for video playback.
+    var player: AVPlayer?
+    private var playerItem: AVPlayerItem?
+    /// Observer token for the end-of-playback notification.
+    private var playbackObserver: NSObjectProtocol?
+
+    /// The URL of the video asset.
+    let videoURL: URL
+    /// Whether the video should automatically loop.
+    let shouldLoop: Bool
+    /// Whether the video is currently visible
+    private var isVisible: Bool
+
+    /// Initializes the view model with a video URL string.
+    /// - Parameters:
+    ///   - url: A valid video URL string.
+    ///   - shouldLoop: Indicates if the video should loop automatically (default is true).
+    init(url: String, shouldLoop: Bool = true) {
+        guard let url = URL(string: url) else {
+            fatalError("Invalid video URL: \(url)")
+        }
+        self.videoURL = url
+        self.shouldLoop = shouldLoop
+        self.isVisible = false
+    }
+
+    /// Asynchronously prepares the player by loading the asset and setting up the player.
+    func preparePlayer() async {
+        let asset = AVURLAsset(url: videoURL, options: [
+            AVURLAssetPreferPreciseDurationAndTimingKey: true,
+            AVURLAssetAllowsCellularAccessKey: true
+        ])
+        
+        do {
+            let isPlayable = try await asset.load(.isPlayable)
+            if isPlayable {
+                let item = AVPlayerItem(asset: asset)
+                self.playerItem = item
+                self.player = AVPlayer(playerItem: item)
+                // Set initial volume to 0 to prevent audio bleed
+                self.player?.volume = 0
+                self.isReady = true
+                
+                // Only start playing if the view is visible
+                if isVisible {
+                    self.player?.volume = 1
+                    self.play()
+                } else {
+                    // Preload by starting then immediately pausing
+                    self.player?.play()
+                    self.player?.pause()
+                }
+                
+                if shouldLoop {
+                    // Observe the end of playback, then seek to zero & resume.
+                    playbackObserver = NotificationCenter.default.addObserver(
+                        forName: .AVPlayerItemDidPlayToEndTime,
+                        object: item,
+                        queue: .main) { [weak self] _ in
+                            Task { @MainActor [weak self] in
+                                guard let self = self else { return }
+                                self.player?.seek(to: .zero)
+                                if self.isVisible {
+                                    self.play()
+                                }
+                            }
+                        }
+                }
+            } else {
+                print("Asset is not playable")
+            }
+        } catch {
+            print("Error preparing player: \(error)")
+        }
+    }
+
+    /// Starts playback.
+    func play() {
+        guard isVisible else { return }
+        player?.volume = 1
+        player?.play()
+        isPlaying = true
+    }
+
+    /// Pauses playback.
+    func pause() {
+        player?.pause()
+        isPlaying = false
+    }
+
+    /// Toggles playback between play and pause.
+    func togglePlayback() {
+        if isPlaying {
+            pause()
+        } else {
+            play()
+        }
+    }
+
+    /// Updates the player based on its visibility.
+    /// - Parameter isVisible: When `true`, plays the video; when `false`, pauses it.
+    func handleVisibilityChange(isVisible: Bool) {
+        self.isVisible = isVisible
+        if isVisible {
+            player?.volume = 1
+            play()
+        } else {
+            player?.volume = 0
+            pause()
+        }
+    }
+
+    /// Cleans up the player and observers.
+    func cleanup() {
+        pause()
+        if let observer = playbackObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        playbackObserver = nil
+        player = nil
+        playerItem = nil
+        isReady = false
+    }
+}
+
+/// A SwiftUI view that displays the video player. It listens for tap gestures to toggle
+/// play/pause and handles life-cycle events (onAppear/onDisappear) for cleanup.
 struct VideoPlayerView: View {
     let videoURL: String
-    let nextVideoURL: String?
     let isVisible: Bool
-    @State private var queuePlayer: AVQueuePlayer?
-    @State private var isPlaying = true
-    
-    // Track preloaded assets
-    @State private var currentAsset: AVAsset?
-    @State private var nextAsset: AVAsset?
-    
+    let shouldLoop: Bool
+
+    /// The view model is created with the video URL.
+    @StateObject private var viewModel: VideoPlayerViewModel
+
+    init(videoURL: String, isVisible: Bool, shouldLoop: Bool = true) {
+        self.videoURL = videoURL
+        self.isVisible = isVisible
+        self.shouldLoop = shouldLoop
+        _viewModel = StateObject(wrappedValue: VideoPlayerViewModel(url: videoURL, shouldLoop: shouldLoop))
+    }
+
     var body: some View {
         ZStack {
-            if let player = queuePlayer {
-                PlayerContainerView(player: player)
-                    .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+            if viewModel.isReady {
+                VideoPlayerContainerView(viewModel: viewModel)
                     .edgesIgnoringSafeArea(.all)
-                    .overlay(Color.black.opacity(0.001))
+                    // Toggle playback when the view is tapped.
                     .onTapGesture {
-                        if isPlaying {
-                            player.pause()
-                        } else {
-                            player.play()
-                        }
-                        isPlaying.toggle()
+                        viewModel.togglePlayback()
                     }
             } else {
                 ProgressView()
@@ -34,218 +165,63 @@ struct VideoPlayerView: View {
             }
         }
         .background(Color.black)
-        .task {
-            if currentAsset == nil {
-                await preloadAssets()
-                if isVisible {
-                    setupPlayer()
-                }
-            }
-        }
         .onAppear {
-            if isVisible && queuePlayer == nil {
-                setupPlayer()
+            Task {
+                await viewModel.preparePlayer()
             }
         }
         .onChange(of: isVisible) { _, newValue in
-            if newValue {
-                setupPlayer()
-            } else {
-                cleanup()
-            }
+            viewModel.handleVisibilityChange(isVisible: newValue)
         }
-    }
-    
-    private func preloadAssets() async {
-        // Preload current video
-        if let url = URL(string: videoURL) {
-            let asset = AVURLAsset(url: url)
-            await asset.loadValues(forKeys: ["playable", "duration"])
-            currentAsset = asset
+        .onDisappear {
+            viewModel.cleanup()
         }
-        
-        // Preload next video if available
-        if let nextURL = nextVideoURL,
-           let url = URL(string: nextURL) {
-            let asset = AVURLAsset(url: url)
-            await asset.loadValues(forKeys: ["playable", "duration"])
-            nextAsset = asset
-        }
-    }
-    
-    private func setupPlayer() {
-        guard queuePlayer == nil else { return }
-        
-        // Create player items from preloaded assets
-        let currentItem: AVPlayerItem
-        if let asset = currentAsset {
-            currentItem = AVPlayerItem(asset: asset)
-        } else if let url = URL(string: videoURL) {
-            currentItem = AVPlayerItem(url: url)
-        } else {
-            return
-        }
-        
-        let player = AVQueuePlayer(playerItem: currentItem)
-        
-        // Add preloaded next item if available
-        if let nextAsset = nextAsset {
-            let nextItem = AVPlayerItem(asset: nextAsset)
-            player.insert(nextItem, after: currentItem)
-        }
-        
-        // Enable looping
-        player.actionAtItemEnd = .advance
-        NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: currentItem,
-            queue: .main
-        ) { _ in
-            // Create a new item for looping
-            if let asset = currentAsset {
-                let newItem = AVPlayerItem(asset: asset)
-                player.insert(newItem, after: nil)
-            }
-        }
-        
-        self.queuePlayer = player
-        player.play()
-    }
-    
-    private func cleanup() {
-        queuePlayer?.pause()
-        queuePlayer?.removeAllItems()
-        queuePlayer = nil
-        isPlaying = false
     }
 }
 
-// Player container to handle KVO
-final class PlayerContainerViewController: UIViewController {
-    private var player: AVPlayer
+/// A UIViewControllerRepresentable that hosts our AVPlayerLayer within SwiftUI.
+struct VideoPlayerContainerView: UIViewControllerRepresentable {
+    @ObservedObject var viewModel: VideoPlayerViewModel
+
+    func makeUIViewController(context: Context) -> VideoPlayerContainerViewController {
+        VideoPlayerContainerViewController(viewModel: viewModel)
+    }
+
+    func updateUIViewController(_ uiViewController: VideoPlayerContainerViewController, context: Context) {
+        // No additional update code is required here.
+    }
+}
+
+/// A UIViewController that creates and manages an AVPlayerLayer tied to the view model's player.
+class VideoPlayerContainerViewController: UIViewController {
+    private let viewModel: VideoPlayerViewModel
     private var playerLayer: AVPlayerLayer?
-    private var statusObserver: NSKeyValueObservation?
-    private var loadedTimeRangesObserver: NSKeyValueObservation?
-    private var loopObserver: NSObjectProtocol?
-    
-    init(player: AVPlayer) {
-        self.player = player
+
+    init(viewModel: VideoPlayerViewModel) {
+        self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
     }
-    
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .black
-        setupPlayer()
-        setupObservers()
+        setupPlayerLayer()
     }
-    
+
+    private func setupPlayerLayer() {
+        guard let player = viewModel.player else { return }
+        let layer = AVPlayerLayer(player: player)
+        layer.videoGravity = .resizeAspectFill
+        layer.frame = view.bounds
+        view.layer.addSublayer(layer)
+        self.playerLayer = layer
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         playerLayer?.frame = view.bounds
-    }
-    
-    override func viewDidDisappear(_ animated: Bool) {
-        super.viewDidDisappear(animated)
-        cleanup()
-    }
-    
-    private func cleanup() {
-        statusObserver?.invalidate()
-        loadedTimeRangesObserver?.invalidate()
-        if let loopObserver = loopObserver {
-            NotificationCenter.default.removeObserver(loopObserver)
-        }
-        playerLayer?.removeFromSuperlayer()
-        playerLayer = nil
-    }
-    
-    deinit {
-        cleanup()
-    }
-    
-    private func setupPlayer() {
-        let playerLayer = AVPlayerLayer(player: player)
-        playerLayer.videoGravity = .resizeAspectFill
-        playerLayer.frame = view.bounds
-        view.layer.addSublayer(playerLayer)
-        self.playerLayer = playerLayer
-        
-        // Ensure the layer is visible
-        view.layer.masksToBounds = true
-        playerLayer.opacity = 1.0
-        
-        // Enable background video loading
-        player.currentItem?.canUseNetworkResourcesForLiveStreamingWhilePaused = true
-        
-        // Loop video - observe the player instead of a specific item
-        loopObserver = NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            guard let self = self,
-                  let playerItem = notification.object as? AVPlayerItem,
-                  playerItem == self.player.currentItem else { return }
-            
-            self.player.seek(to: .zero)
-            self.player.play()
-        }
-    }
-    
-    private func setupObservers() {
-        // Observe player item status
-        statusObserver = player.currentItem?.observe(\.status, options: [.new, .old]) { [weak self] playerItem, change in
-            switch playerItem.status {
-            case .failed:
-                if let error = playerItem.error {
-                    print("Player item failed: \(error)")
-                }
-            case .readyToPlay:
-                print("Player item ready to play")
-                // Only play if the player should be playing
-                if self?.player.rate != 0 {
-                    self?.player.play()
-                }
-            case .unknown:
-                print("Player item status unknown")
-            @unknown default:
-                break
-            }
-        }
-        
-        // Observe loaded time ranges to monitor buffering
-        loadedTimeRangesObserver = player.currentItem?.observe(\.loadedTimeRanges) { [weak self] item, _ in
-            guard let timeRange = item.loadedTimeRanges.first?.timeRangeValue else { return }
-            let bufferedDuration = timeRange.duration.seconds
-            let bufferedStart = timeRange.start.seconds
-            print("Buffered from \(bufferedStart)s to \(bufferedStart + bufferedDuration)s")
-        }
-    }
-}
-
-// Bridge between SwiftUI and UIKit
-struct PlayerContainerView: UIViewControllerRepresentable {
-    let player: AVPlayer
-    
-    func makeUIViewController(context: Context) -> PlayerContainerViewController {
-        return PlayerContainerViewController(player: player)
-    }
-    
-    func updateUIViewController(_ uiViewController: PlayerContainerViewController, context: Context) {
-        // Update if needed
-    }
-}
-
-// Preview provider for development
-struct VideoPlayerView_Previews: PreviewProvider {
-    static var previews: some View {
-        VideoPlayerView(videoURL: "https://example.com/sample.mp4", nextVideoURL: nil, isVisible: true)
-            .frame(height: 400)
-            .background(Color.black)
     }
 } 

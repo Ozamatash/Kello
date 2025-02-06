@@ -7,13 +7,14 @@ struct RecipeVideoView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var authViewModel: AuthViewModel
     @GestureState private var dragOffset: CGFloat = 0
-    @State private var isActive = true
+    @State private var isActive = false
+    @State private var isViewReady = false
     
     var body: some View {
         GeometryReader { geometry in
             VideoCard(
                 recipe: recipe,
-                isVisible: isActive,
+                isVisible: isActive && isViewReady,
                 nextVideoURL: nil,
                 viewModel: FeedViewModel(
                     modelContext: modelContext,
@@ -56,8 +57,10 @@ struct RecipeVideoView: View {
         .background(Color.black)
         .onDisappear {
             isActive = false
+            isViewReady = false
         }
         .onAppear {
+            isViewReady = true
             isActive = true
         }
     }
