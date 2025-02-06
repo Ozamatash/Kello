@@ -2,14 +2,14 @@ import SwiftUI
 import SwiftData
 
 struct FeedView: View {
-    @State private var viewModel: FeedViewModel
+    @StateObject private var viewModel: FeedViewModel
     @State private var currentIndex = 0
     @GestureState private var dragOffset: CGFloat = 0
     @State private var hasInitiallyLoaded = false
     let isTabActive: Bool
     
     init(modelContext: ModelContext, isTabActive: Bool, authViewModel: AuthViewModel) {
-        _viewModel = State(initialValue: FeedViewModel(modelContext: modelContext, authViewModel: authViewModel))
+        _viewModel = StateObject(wrappedValue: FeedViewModel(modelContext: modelContext, authViewModel: authViewModel))
         self.isTabActive = isTabActive
     }
     
@@ -28,11 +28,17 @@ struct FeedView: View {
             }
         }
         .onChange(of: isTabActive) { oldValue, newValue in
+            // Handle initial load when tab becomes active
             if newValue && !hasInitiallyLoaded {
                 Task {
                     await viewModel.loadInitialRecipes()
                     hasInitiallyLoaded = true
                 }
+            }
+            
+            // Reset video state when tab becomes inactive
+            if !newValue {
+                currentIndex = max(0, currentIndex)
             }
         }
         .onChange(of: currentIndex) { oldValue, newValue in
@@ -56,12 +62,6 @@ struct FeedView: View {
                 currentIndex = 0
             } else if currentIndex >= newValue {
                 currentIndex = newValue - 1
-            }
-        }
-        .onChange(of: isTabActive) { oldValue, newValue in
-            // Reset video state when tab becomes inactive
-            if !newValue {
-                currentIndex = max(0, currentIndex)
             }
         }
     }

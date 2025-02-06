@@ -25,9 +25,10 @@ class VideoPlayerViewModel: ObservableObject {
     /// - Parameters:
     ///   - url: A valid video URL string.
     ///   - shouldLoop: Indicates if the video should loop automatically (default is true).
-    init(url: String, shouldLoop: Bool = true) {
+    ///   - isVisible: The initial visibility state of the video.
+    init(url: String, shouldLoop: Bool = true, isVisible: Bool = false) {
         self.shouldLoop = shouldLoop
-        self.isVisible = false
+        self.isVisible = isVisible
         
         // Load video URL and prepare player
         Task {
@@ -60,7 +61,7 @@ class VideoPlayerViewModel: ObservableObject {
                 self.player?.volume = 0
                 self.isReady = true
                 
-                // Only start playing if the view is visible
+                // Start playback if the view is visible, otherwise preload.
                 if isVisible {
                     self.player?.volume = 1
                     self.play()
@@ -156,7 +157,7 @@ struct VideoPlayerView: View {
         self.videoURL = videoURL
         self.isVisible = isVisible
         self.shouldLoop = shouldLoop
-        _viewModel = StateObject(wrappedValue: VideoPlayerViewModel(url: videoURL, shouldLoop: shouldLoop))
+        _viewModel = StateObject(wrappedValue: VideoPlayerViewModel(url: videoURL, shouldLoop: shouldLoop, isVisible: isVisible))
     }
 
     var body: some View {

@@ -5,7 +5,7 @@ struct VideoCard: View {
     let recipe: Recipe
     let isVisible: Bool
     let nextVideoURL: String?
-    @StateObject private var viewModel: FeedViewModel
+    @ObservedObject var viewModel: FeedViewModel
     @State private var showingDetails = false
     @State private var showingComments = false
     
@@ -13,7 +13,7 @@ struct VideoCard: View {
         self.recipe = recipe
         self.isVisible = isVisible
         self.nextVideoURL = nextVideoURL
-        _viewModel = StateObject(wrappedValue: viewModel)
+        self.viewModel = viewModel
     }
     
     var body: some View {
