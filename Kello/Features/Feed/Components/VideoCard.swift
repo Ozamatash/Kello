@@ -42,42 +42,27 @@ struct VideoCard: View {
                     }
                 )
                 .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 50) }
-                
-                // Recipe Details Sheet
-                if showingDetails {
-                    Color.black
-                        .opacity(0.4)
-                        .ignoresSafeArea()
-                        .transition(.opacity)
-                    
-                    GeometryReader { sheetGeometry in
-                        RecipeDetailsSheet(
-                            recipe: recipe,
-                            isPresented: $showingDetails
-                        )
-                        .frame(height: sheetGeometry.safeAreaInsets.bottom > 0 
-                               ? sheetGeometry.size.height - 100 // For devices with home indicator
-                               : sheetGeometry.size.height - 70) // For devices without home indicator
-                        .transition(.move(edge: .bottom))
-                    }
-                }
-                
-                // Comments Sheet
-                if showingComments {
-                    GeometryReader { sheetGeometry in
-                        CommentSheetView(
-                            viewModel: CommentsViewModel(recipeId: recipe.id),
-                            isPresented: $showingComments
-                        )
-                        .frame(height: sheetGeometry.safeAreaInsets.bottom > 0 
-                               ? sheetGeometry.size.height - 100 // For devices with home indicator
-                               : sheetGeometry.size.height - 70) // For devices without home indicator
-                        .transition(.move(edge: .bottom))
-                    }
-                }
             }
         }
         .edgesIgnoringSafeArea(.all)
+        .sheet(isPresented: $showingDetails) {
+            RecipeDetailsSheet(
+                recipe: recipe,
+                isPresented: $showingDetails
+            )
+            .presentationBackground(.background)
+            .presentationDragIndicator(.visible)
+            .presentationDetents([.fraction(0.75)])
+        }
+        .sheet(isPresented: $showingComments) {
+            CommentSheetView(
+                viewModel: CommentsViewModel(recipeId: recipe.id),
+                isPresented: $showingComments
+            )
+            .presentationBackground(.background)
+            .presentationDragIndicator(.visible)
+            .presentationDetents([.fraction(0.75)])
+        }
     }
 }
 
