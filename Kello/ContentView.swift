@@ -39,10 +39,26 @@ struct ContentView: View {
             
             #if DEBUG
             // Debug controls - only visible in debug builds
-            Button(action: {
-                PopulateTestData.populateTestData()
-            }) {
-                Text("Reset Data")
+            VStack(spacing: 20) {
+                Button(action: {
+                    PopulateTestData.populateTestData()
+                }) {
+                    Text("Reset Data")
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(Color.blue)
+                        .cornerRadius(10)
+                }
+                
+                Button(action: {
+                    VideoCache.shared.clearCache()
+                }) {
+                    Text("Clear Video Cache")
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(Color.orange)
+                        .cornerRadius(10)
+                }
             }
             .tabItem {
                 Label("Test Data", systemImage: "gear")

@@ -15,7 +15,7 @@ class VideoPlayerViewModel: ObservableObject {
     private var playbackObserver: NSObjectProtocol?
 
     /// The URL of the video asset.
-    let videoURL: URL
+    private var videoURL: URL?
     /// Whether the video should automatically loop.
     let shouldLoop: Bool
     /// Whether the video is currently visible
@@ -26,16 +26,25 @@ class VideoPlayerViewModel: ObservableObject {
     ///   - url: A valid video URL string.
     ///   - shouldLoop: Indicates if the video should loop automatically (default is true).
     init(url: String, shouldLoop: Bool = true) {
-        guard let url = URL(string: url) else {
-            fatalError("Invalid video URL: \(url)")
-        }
-        self.videoURL = url
         self.shouldLoop = shouldLoop
         self.isVisible = false
+        
+        // Load video URL and prepare player
+        Task {
+            do {
+                let url = try await VideoCache.shared.getVideoURL(url)
+                self.videoURL = url
+                await preparePlayer()
+            } catch {
+                print("Error loading video URL: \(error)")
+            }
+        }
     }
 
     /// Asynchronously prepares the player by loading the asset and setting up the player.
     func preparePlayer() async {
+        guard let videoURL else { return }
+        
         let asset = AVURLAsset(url: videoURL, options: [
             AVURLAssetPreferPreciseDurationAndTimingKey: true,
             AVURLAssetAllowsCellularAccessKey: true
