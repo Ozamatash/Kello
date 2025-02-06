@@ -24,6 +24,7 @@ struct ContentView: View {
                 Label("Feed", systemImage: "play.circle.fill")
             }
             .tag(0)
+            .toolbarBackground(.hidden, for: .tabBar)
             
             DiscoverView()
                 .tabItem {
@@ -66,6 +67,7 @@ struct ContentView: View {
             .tag(3)
             #endif
         }
+        .tint(.primary)
     }
 }
 

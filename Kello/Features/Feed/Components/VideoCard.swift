@@ -94,9 +94,9 @@ private struct RecipeOverlay: View {
                             }
                         }
                     }) {
-                        Image(systemName: recipe.isLikedByCurrentUser ? "heart.fill" : "heart")
+                        Image(systemName: viewModel.isRecipeLiked(recipe.id) ? "heart.fill" : "heart")
                             .font(.system(size: 26))
-                            .foregroundColor(recipe.isLikedByCurrentUser ? .red : .white)
+                            .foregroundColor(viewModel.isRecipeLiked(recipe.id) ? .red : .white)
                     }
                     
                     Text("\(recipe.likes)")
