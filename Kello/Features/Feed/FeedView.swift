@@ -5,6 +5,7 @@ struct FeedView: View {
     @State private var viewModel: FeedViewModel
     @State private var currentIndex = 0
     @GestureState private var dragOffset: CGFloat = 0
+    @State private var hasInitiallyLoaded = false
     let isTabActive: Bool
     
     init(modelContext: ModelContext, isTabActive: Bool, authViewModel: AuthViewModel) {
@@ -18,6 +19,20 @@ struct FeedView: View {
                 Color.black.edgesIgnoringSafeArea(.all)
                 
                 content
+            }
+        }
+        .task {
+            if !hasInitiallyLoaded {
+                await viewModel.loadInitialRecipes()
+                hasInitiallyLoaded = true
+            }
+        }
+        .onChange(of: isTabActive) { oldValue, newValue in
+            if newValue && !hasInitiallyLoaded {
+                Task {
+                    await viewModel.loadInitialRecipes()
+                    hasInitiallyLoaded = true
+                }
             }
         }
         .onChange(of: currentIndex) { oldValue, newValue in
@@ -49,9 +64,6 @@ struct FeedView: View {
                 currentIndex = max(0, currentIndex)
             }
         }
-        .task {
-            await viewModel.loadInitialRecipes()
-        }
     }
     
     @ViewBuilder
@@ -75,7 +87,7 @@ struct FeedView: View {
             ) { index in
                 VideoCard(
                     recipe: viewModel.recipes[index],
-                    isVisible: isTabActive && index == currentIndex,
+                    isVisible: (isTabActive || !hasInitiallyLoaded) && index == currentIndex,
                     nextVideoURL: index < viewModel.recipes.count - 1 ? 
                         viewModel.recipes[index + 1].videoURL : nil,
                     viewModel: viewModel

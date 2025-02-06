@@ -7,26 +7,13 @@ struct CommentSheetView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Drag handle area
-            Rectangle()
-                .fill(.clear)
-                .frame(height: 40)
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 20)
-                        .onEnded { gesture in
-                            if gesture.translation.height > 50 {
-                                isPresented = false
-                            }
-                        }
-                )
-            
-            // Title
+            // Title header
             Text("Comments")
                 .font(.headline)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal)
-                .padding(.bottom, 8)
+                .padding()
+            
+            Divider()
             
             // Comments list
             ScrollView {

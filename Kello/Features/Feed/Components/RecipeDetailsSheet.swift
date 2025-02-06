@@ -5,39 +5,31 @@ struct RecipeDetailsSheet: View {
     @Binding var isPresented: Bool
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                // Drag handle area
-                Rectangle()
-                    .fill(.clear)
-                    .frame(height: 40)
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 20)
-                            .onEnded { gesture in
-                                if gesture.translation.height > 50 {
-                                    isPresented = false
-                                }
-                            }
-                    )
-                
+        VStack(spacing: 0) {
+            // Title header
+            Text(recipe.title)
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+                .background(Color(UIColor.systemBackground))
+            
+            Divider()
+            
+            ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    recipeHeader
+                    recipeInfo
                     ingredientsSection
                     instructionsSection
                     nutritionSection
                 }
                 .padding(.horizontal)
+                .padding(.top, 12)
             }
         }
     }
     
-    private var recipeHeader: some View {
+    private var recipeInfo: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(recipe.title)
-                .font(.title2)
-                .bold()
-            
             HStack(spacing: 16) {
                 Label("\(recipe.cookingTime) min", systemImage: "clock")
                 Label(recipe.cuisineType, systemImage: "fork.knife")
