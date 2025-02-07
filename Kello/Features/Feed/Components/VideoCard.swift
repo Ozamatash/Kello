@@ -95,6 +95,20 @@ private struct RecipeOverlay: View {
         ZStack(alignment: .bottom) {
             // Right side: Engagement buttons
             VStack(spacing: 16) {
+                // See Recipe Button
+                VStack(spacing: 2) {
+                    Button(action: onDetailsPressed) {
+                        Image(systemName: "list.clipboard")
+                            .font(.system(size: 24))
+                            .foregroundColor(.white)
+                    }
+                    
+                    Text("Recipe")
+                        .font(.caption)
+                        .bold()
+                        .foregroundColor(.white)
+                }
+                
                 // Like Button
                 VStack(spacing: 2) {
                     Button(action: {
@@ -146,20 +160,6 @@ private struct RecipeOverlay: View {
                     }
                     
                     Text("Save")
-                        .font(.caption)
-                        .bold()
-                        .foregroundColor(.white)
-                }
-                
-                // See Recipe Button
-                VStack(spacing: 2) {
-                    Button(action: onDetailsPressed) {
-                        Image(systemName: "list.clipboard")
-                            .font(.system(size: 24))
-                            .foregroundColor(.white)
-                    }
-                    
-                    Text("Recipe")
                         .font(.caption)
                         .bold()
                         .foregroundColor(.white)
