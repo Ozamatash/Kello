@@ -55,6 +55,8 @@ struct ProfileView: View {
                     }
                     .pickerStyle(.segmented)
                     .padding(.horizontal)
+                    .padding(.bottom, 8)
+                    .zIndex(1)  // Ensure tabs are above content for tapping
                     
                     // Error View
                     if let error = viewModel.error {
@@ -117,25 +119,29 @@ struct ProfileView: View {
     }
     
     private var collectionsGrid: some View {
-        LazyVGrid(columns: columns, spacing: 16) {
-            ForEach(viewModel.bookmarkCollections) { collection in
-                NavigationLink {
-                    BookmarkCollectionDetailView(collection: collection)
-                } label: {
-                    CollectionCard(collection: collection)
+        ScrollView {
+            LazyVGrid(columns: columns, spacing: 16) {
+                ForEach(viewModel.bookmarkCollections) { collection in
+                    NavigationLink {
+                        BookmarkCollectionDetailView(collection: collection)
+                    } label: {
+                        CollectionCard(collection: collection)
+                    }
                 }
             }
+            .padding(.horizontal)
         }
-        .padding(.horizontal)
     }
     
     private func recipesGrid(recipes: [Recipe]) -> some View {
-        LazyVGrid(columns: columns, spacing: 16) {
-            ForEach(recipes) { recipe in
-                CollectionRecipeCard(recipe: recipe)
+        ScrollView {
+            LazyVGrid(columns: columns, spacing: 16) {
+                ForEach(recipes) { recipe in
+                    CollectionRecipeCard(recipe: recipe)
+                }
             }
+            .padding(.horizontal)
         }
-        .padding(.horizontal)
     }
 }
 
@@ -151,19 +157,17 @@ private struct StatButton: View {
             Image(systemName: systemImage)
                 .font(.title2)
                 .foregroundColor(.accentColor)
+                .frame(height: 28)
             
             Text("\(count)")
-                .font(.title2)
-                .fontWeight(.bold)
+                .font(.title3)
+                .fontWeight(.semibold)
             
             Text(label)
                 .font(.subheadline)
                 .foregroundColor(.gray)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(12)
     }
 }
 
