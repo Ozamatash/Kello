@@ -32,11 +32,17 @@ struct ContentView: View {
                 }
                 .tag(1)
             
+            CreateRecipeView()
+                .tabItem {
+                    Label("Create", systemImage: "plus.circle.fill")
+                }
+                .tag(2)
+            
             ProfileView()
                 .tabItem {
                     Label("Profile", systemImage: "person.circle")
                 }
-                .tag(2)
+                .tag(3)
             
             #if DEBUG
             // Debug controls - only visible in debug builds
@@ -64,7 +70,7 @@ struct ContentView: View {
             .tabItem {
                 Label("Test Data", systemImage: "gear")
             }
-            .tag(3)
+            .tag(4)
             #endif
         }
         .tint(.primary)

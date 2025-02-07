@@ -3,6 +3,7 @@ import FirebaseAuth
 import FirebaseFirestore
 import FirebaseStorage
 import Combine
+import AVFoundation
 
 enum AuthError: LocalizedError {
     case userNotFound
@@ -152,9 +153,105 @@ class FirebaseService {
         }
     }
     
+    // MARK: - Recipe Creation
+    
+    func createRecipe(
+        title: String,
+        description: String,
+        cookingTime: Int,
+        cuisineType: String,
+        mealType: String,
+        ingredients: [String],
+        steps: [String],
+        videoURL: URL
+    ) async throws -> Recipe {
+        guard let userId = config.auth.currentUser?.uid else {
+            throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
+        }
+        
+        // 1. Upload video
+        let videoDownloadURL = try await uploadVideo(videoURL: videoURL)
+        
+        // 2. Generate and upload thumbnail
+        let thumbnailURL = try await generateAndUploadThumbnail(from: videoURL)
+        
+        // 3. Create recipe document
+        let recipeData: [String: Any] = [
+            "title": title,
+            "description": description,
+            "cookingTime": cookingTime,
+            "cuisineType": cuisineType,
+            "mealType": mealType,
+            "ingredients": ingredients,
+            "steps": steps,
+            "videoURL": videoDownloadURL,
+            "thumbnailURL": thumbnailURL,
+            "userId": userId,
+            "createdAt": FieldValue.serverTimestamp(),
+            "updatedAt": FieldValue.serverTimestamp(),
+            "likes": 0,
+            "comments": 0,
+            "shares": 0
+        ]
+        
+        let docRef = try await config.firestore
+            .collection("recipes")
+            .addDocument(data: recipeData)
+        
+        // 4. Return the created recipe
+        return Recipe(
+            id: docRef.documentID,
+            title: title,
+            description: description,
+            cookingTime: cookingTime,
+            cuisineType: cuisineType,
+            mealType: mealType,
+            ingredients: ingredients,
+            steps: steps,
+            videoURL: videoDownloadURL,
+            thumbnailURL: thumbnailURL
+        )
+    }
+    
     // MARK: - Video Operations
     
+    private func generateAndUploadThumbnail(from videoURL: URL) async throws -> String {
+        let asset = AVAsset(url: videoURL)
+        let imageGenerator = AVAssetImageGenerator(asset: asset)
+        imageGenerator.appliesPreferredTrackTransform = true
+        
+        // Get the first frame
+        let cgImage = try imageGenerator.copyCGImage(at: .zero, actualTime: nil)
+        let uiImage = UIImage(cgImage: cgImage)
+        
+        // Convert to Data
+        guard let imageData = uiImage.jpegData(compressionQuality: 0.7) else {
+            throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to generate thumbnail"])
+        }
+        
+        // Upload to Firebase Storage
+        let filename = UUID().uuidString + ".jpg"
+        let storageRef = config.storage.reference().child("thumbnails/\(filename)")
+        
+        _ = try await storageRef.putDataAsync(imageData)
+        let downloadURL = try await storageRef.downloadURL()
+        return downloadURL.absoluteString
+    }
+    
     func uploadVideo(videoURL: URL) async throws -> String {
+        // Validate video size
+        let resources = try videoURL.resourceValues(forKeys: [.fileSizeKey])
+        guard let fileSize = resources.fileSize else {
+            throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Could not determine video size"])
+        }
+        
+        // Maximum size: 100MB
+        let maxSize = 100 * 1024 * 1024
+        guard fileSize <= maxSize else {
+            throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Video size must be less than 100MB"])
+        }
+        
+        // Upload to Firebase Storage
         let filename = UUID().uuidString + ".mp4"
         let storageRef = config.storage.reference().child("videos/\(filename)")
         
@@ -731,8 +828,8 @@ class FirebaseService {
     // MARK: - User Recipe Operations
     
     func fetchUserRecipes() async throws -> [Recipe] {
-        guard let userId = Auth.auth().currentUser?.uid else {
-            throw AuthError.userNotFound
+        guard let userId = config.auth.currentUser?.uid else {
+            throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not authenticated"])
         }
         
         let snapshot = try await config.firestore
