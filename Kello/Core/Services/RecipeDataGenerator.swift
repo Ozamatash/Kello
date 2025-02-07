@@ -243,6 +243,8 @@ class RecipeDataGenerator {
     
     // MARK: - Recipe Generation
     
+    private static var currentVideoIndex = 0
+    
     static func generateRecipe(videoURL: String, type: String = "random") -> [String: Any] {
         let meal: (title: String, time: Int, type: String)
         
@@ -314,28 +316,36 @@ class RecipeDataGenerator {
         let mediumCount = count / 3
         let longCount = count - quickCount - mediumCount
         
+        // Reset video index if we've used all videos
+        if currentVideoIndex >= videoURLs.count {
+            currentVideoIndex = 0
+        }
+        
         // Generate quick recipes
         for _ in 0..<quickCount {
             recipes.append(generateRecipe(
-                videoURL: videoURLs[Int.random(in: 0..<videoURLs.count)],
+                videoURL: videoURLs[currentVideoIndex],
                 type: "quick"
             ))
+            currentVideoIndex = (currentVideoIndex + 1) % videoURLs.count
         }
         
         // Generate medium recipes
         for _ in 0..<mediumCount {
             recipes.append(generateRecipe(
-                videoURL: videoURLs[Int.random(in: 0..<videoURLs.count)],
+                videoURL: videoURLs[currentVideoIndex],
                 type: "medium"
             ))
+            currentVideoIndex = (currentVideoIndex + 1) % videoURLs.count
         }
         
         // Generate long recipes
         for _ in 0..<longCount {
             recipes.append(generateRecipe(
-                videoURL: videoURLs[Int.random(in: 0..<videoURLs.count)],
+                videoURL: videoURLs[currentVideoIndex],
                 type: "long"
             ))
+            currentVideoIndex = (currentVideoIndex + 1) % videoURLs.count
         }
         
         return recipes.shuffled()

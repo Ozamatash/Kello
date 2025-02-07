@@ -81,8 +81,16 @@ class PopulateTestData {
     
     func populateDatabase(withVideoURLs videoURLs: [String]) async throws {
         print("🧑‍🍳 Generating recipes...")
-        // Generate 30 recipes (10 of each type)
-        let testRecipes = RecipeDataGenerator.generateBatch(count: 30, videoURLs: videoURLs)
+        // Generate enough recipes to use all videos at least once
+        // We want at least 60 recipes, but also enough to use each video at least once
+        let minRecipeCount = max(60, videoURLs.count)
+        // Generate recipes in batches of 3 (quick, medium, long) to ensure even distribution
+        let batchSize = 3
+        let numberOfBatches = (minRecipeCount + batchSize - 1) / batchSize
+        let totalRecipes = numberOfBatches * batchSize
+        
+        print("📝 Will generate \(totalRecipes) recipes to ensure all \(videoURLs.count) videos are used...")
+        let testRecipes = RecipeDataGenerator.generateBatch(count: totalRecipes, videoURLs: videoURLs)
         
         print("📝 Adding recipes to Firestore...")
         // Add recipes to Firestore
@@ -129,22 +137,76 @@ class PopulateTestData {
     }
     
     func clearDatabase() async throws {
+        print("🗑️ Starting database cleanup...")
+        var batch = firestore.batch()
+        var batchCount = 0
+        let maxBatchSize = 500 // Firebase limit is 500 operations per batch
+        
+        // Function to commit batch and create a new one
+        func commitBatchIfNeeded() async throws {
+            if batchCount >= maxBatchSize {
+                try await batch.commit()
+                batch = firestore.batch() // Create a new batch
+                batchCount = 0
+            }
+        }
+        
+        // 1. Clear recipes and their relationships
         print("🗑️ Clearing recipes...")
         let recipeSnapshot = try await firestore.collection("recipes").getDocuments()
         for document in recipeSnapshot.documents {
-            try await document.reference.delete()
+            batch.deleteDocument(document.reference)
+            batchCount += 1
+            try await commitBatchIfNeeded()
         }
         
+        // 2. Clear comments and their likes
         print("🗑️ Clearing comments...")
         let commentSnapshot = try await firestore.collection("comments").getDocuments()
         for document in commentSnapshot.documents {
-            // Delete all likes in the subcollection first
-            let likesSnapshot = try await document.reference.collection("likes").getDocuments()
-            for likeDoc in likesSnapshot.documents {
-                try await likeDoc.reference.delete()
-            }
-            // Then delete the comment
-            try await document.reference.delete()
+            batch.deleteDocument(document.reference)
+            batchCount += 1
+            try await commitBatchIfNeeded()
+        }
+        
+        // 3. Clear bookmark collections
+        print("🗑️ Clearing bookmark collections...")
+        let collectionsSnapshot = try await firestore.collection("bookmarkCollections").getDocuments()
+        for document in collectionsSnapshot.documents {
+            batch.deleteDocument(document.reference)
+            batchCount += 1
+            try await commitBatchIfNeeded()
+        }
+        
+        // 4. Clear user profiles and their relationships
+        print("🗑️ Clearing user profiles...")
+        let userProfilesSnapshot = try await firestore.collection("users").getDocuments()
+        for document in userProfilesSnapshot.documents {
+            // Reset user data instead of deleting the document
+            // This preserves the user account but clears their data
+            batch.updateData([
+                "likedRecipes": [],
+                "bookmarkedRecipes": [],
+                "followingUsers": [],
+                "followers": [],
+                "recipeCount": 0
+            ], forDocument: document.reference)
+            batchCount += 1
+            try await commitBatchIfNeeded()
+        }
+        
+        // 5. Clear any pending likes
+        print("🗑️ Clearing likes...")
+        let likesSnapshot = try await firestore.collection("likes").getDocuments()
+        for document in likesSnapshot.documents {
+            batch.deleteDocument(document.reference)
+            batchCount += 1
+            try await commitBatchIfNeeded()
+        }
+        
+        // Commit any remaining operations
+        if batchCount > 0 {
+            try await batch.commit()
         }
         
         print("✅ Database cleared successfully!")

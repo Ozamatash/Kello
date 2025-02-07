@@ -7,12 +7,14 @@ import AVFoundation
 class VideoPlayerViewModel: ObservableObject {
     @Published var isReady = false
     @Published var isPlaying = false
+    @Published var error: Error?
 
     /// The underlying AVPlayer used for video playback.
     var player: AVPlayer?
     private var playerItem: AVPlayerItem?
     /// Observer token for the end-of-playback notification.
     private var playbackObserver: NSObjectProtocol?
+    private var errorObserver: NSObjectProtocol?
 
     /// The URL of the video asset.
     private var videoURL: URL?
@@ -38,6 +40,7 @@ class VideoPlayerViewModel: ObservableObject {
                 await preparePlayer()
             } catch {
                 print("Error loading video URL: \(error)")
+                self.error = error
             }
         }
     }
@@ -46,10 +49,7 @@ class VideoPlayerViewModel: ObservableObject {
     func preparePlayer() async {
         guard let videoURL else { return }
         
-        let asset = AVURLAsset(url: videoURL, options: [
-            AVURLAssetPreferPreciseDurationAndTimingKey: true,
-            AVURLAssetAllowsCellularAccessKey: true
-        ])
+        let asset = AVURLAsset(url: videoURL)
         
         do {
             let isPlayable = try await asset.load(.isPlayable)
@@ -71,6 +71,21 @@ class VideoPlayerViewModel: ObservableObject {
                     self.player?.pause()
                 }
                 
+                // Observe playback errors
+                errorObserver = NotificationCenter.default.addObserver(
+                    forName: .AVPlayerItemFailedToPlayToEndTime,
+                    object: item,
+                    queue: .main) { [weak self] notification in
+                        if let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error {
+                            print("Playback error: \(error)")
+                            self?.error = error
+                            // Try to recover by reloading the player
+                            Task { @MainActor [weak self] in
+                                await self?.preparePlayer()
+                            }
+                        }
+                    }
+                
                 if shouldLoop {
                     // Observe the end of playback, then seek to zero & resume.
                     playbackObserver = NotificationCenter.default.addObserver(
@@ -88,9 +103,11 @@ class VideoPlayerViewModel: ObservableObject {
                 }
             } else {
                 print("Asset is not playable")
+                self.error = NSError(domain: "VideoPlayer", code: -1, userInfo: [NSLocalizedDescriptionKey: "Video asset is not playable"])
             }
         } catch {
             print("Error preparing player: \(error)")
+            self.error = error
         }
     }
 
@@ -136,21 +153,24 @@ class VideoPlayerViewModel: ObservableObject {
         if let observer = playbackObserver {
             NotificationCenter.default.removeObserver(observer)
         }
+        if let observer = errorObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
         playbackObserver = nil
+        errorObserver = nil
         player = nil
         playerItem = nil
         isReady = false
+        error = nil
     }
 }
 
-/// A SwiftUI view that displays the video player. It listens for tap gestures to toggle
-/// play/pause and handles life-cycle events (onAppear/onDisappear) for cleanup.
+/// A SwiftUI view that displays the video player.
 struct VideoPlayerView: View {
     let videoURL: String
     let isVisible: Bool
     let shouldLoop: Bool
 
-    /// The view model is created with the video URL.
     @StateObject private var viewModel: VideoPlayerViewModel
 
     init(videoURL: String, isVisible: Bool, shouldLoop: Bool = true) {
@@ -165,10 +185,18 @@ struct VideoPlayerView: View {
             if viewModel.isReady {
                 VideoPlayerContainerView(viewModel: viewModel)
                     .edgesIgnoringSafeArea(.all)
-                    // Toggle playback when the view is tapped.
                     .onTapGesture {
                         viewModel.togglePlayback()
                     }
+            } else if viewModel.error != nil {
+                VStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.white)
+                        .font(.largeTitle)
+                    Text("Unable to load video")
+                        .foregroundColor(.white)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
