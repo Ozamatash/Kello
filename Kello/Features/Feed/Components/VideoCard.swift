@@ -8,6 +8,8 @@ struct VideoCard: View {
     @ObservedObject var viewModel: FeedViewModel
     @State private var showingDetails = false
     @State private var showingComments = false
+    @State private var showingBookmarkOptions = false
+    @StateObject private var bookmarksViewModel = BookmarksViewModel()
     
     init(recipe: Recipe, isVisible: Bool, nextVideoURL: String?, viewModel: FeedViewModel) {
         self.recipe = recipe
@@ -39,6 +41,11 @@ struct VideoCard: View {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                             showingComments = true
                         }
+                    },
+                    onBookmarkPressed: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            showingBookmarkOptions = true
+                        }
                     }
                 )
                 .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 50) }
@@ -63,6 +70,16 @@ struct VideoCard: View {
             .presentationDragIndicator(.visible)
             .presentationDetents([.fraction(0.75)])
         }
+        .sheet(isPresented: $showingBookmarkOptions) {
+            BookmarkOptionsSheet(
+                recipe: recipe,
+                viewModel: bookmarksViewModel,
+                isPresented: $showingBookmarkOptions
+            )
+            .presentationBackground(.background)
+            .presentationDragIndicator(.visible)
+            .presentationDetents([.medium])
+        }
     }
 }
 
@@ -71,6 +88,7 @@ private struct RecipeOverlay: View {
     @ObservedObject var viewModel: FeedViewModel
     let onDetailsPressed: () -> Void
     let onCommentsPressed: () -> Void
+    let onBookmarkPressed: () -> Void
     @State private var isLiking = false
     
     var body: some View {
@@ -114,6 +132,20 @@ private struct RecipeOverlay: View {
                     }
                     
                     Text("\(recipe.comments)")
+                        .font(.caption)
+                        .bold()
+                        .foregroundColor(.white)
+                }
+                
+                // Bookmark Button
+                VStack(spacing: 2) {
+                    Button(action: onBookmarkPressed) {
+                        Image(systemName: "bookmark")
+                            .font(.system(size: 24))
+                            .foregroundColor(.white)
+                    }
+                    
+                    Text("Save")
                         .font(.caption)
                         .bold()
                         .foregroundColor(.white)

@@ -2,152 +2,195 @@ import SwiftUI
 import SwiftData
 
 struct ProfileView: View {
-    @EnvironmentObject private var authViewModel: AuthViewModel
-    @State private var likedRecipes: [Recipe] = []
-    @State private var isLoading = false
-    @State private var error: Error?
-    private let firebaseService = FirebaseService.shared
+    @StateObject private var viewModel = ProfileViewModel()
+    @State private var showingSettings = false
+    @State private var selectedTab = 0
+    
+    private let columns = [
+        GridItem(.flexible()),
+        GridItem(.flexible())
+    ]
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
                     // Profile Header
-                    VStack(spacing: 8) {
+                    VStack(spacing: 16) {
                         Image(systemName: "person.circle.fill")
                             .font(.system(size: 80))
                             .foregroundColor(.gray)
                         
-                        Text(authViewModel.userProfile?.email ?? "User")
-                            .font(.title2)
-                            .fontWeight(.semibold)
+                        // Stats Section
+                        HStack(spacing: 32) {
+                            // Recipes
+                            StatButton(
+                                count: viewModel.userRecipes.count,
+                                label: "Recipes",
+                                systemImage: "fork.knife"
+                            )
+                            
+                            // Collections
+                            StatButton(
+                                count: viewModel.bookmarkCollections.count,
+                                label: "Collections",
+                                systemImage: "bookmark.fill"
+                            )
+                            
+                            // Likes
+                            StatButton(
+                                count: viewModel.likedRecipes.count,
+                                label: "Likes",
+                                systemImage: "heart.fill"
+                            )
+                        }
                     }
                     .padding(.vertical)
                     
-                    // Stats
-                    HStack(spacing: 40) {
-                        VStack {
-                            Text("\(likedRecipes.count)")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                            Text("Liked")
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        VStack {
-                            Text("\(authViewModel.userProfile?.bookmarkedRecipes.count ?? 0)")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                            Text("Saved")
-                                .foregroundColor(.secondary)
-                        }
+                    // Content Tabs
+                    Picker("Content", selection: $selectedTab) {
+                        Text("My Recipes").tag(0)
+                        Text("Liked").tag(1)
+                        Text("Collections").tag(2)
                     }
-                    .padding(.bottom)
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal)
                     
-                    // Liked Recipes Grid
-                    VStack(alignment: .leading) {
-                        Text("Liked Recipes")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                            .padding(.horizontal)
-                        
-                        if isLoading {
-                            ProgressView("Loading recipes...")
-                                .padding(.top, 40)
-                        } else if let error = error {
-                            VStack(spacing: 16) {
-                                Image(systemName: "exclamationmark.triangle")
-                                    .font(.largeTitle)
-                                    .foregroundColor(.orange)
-                                Text("Error loading recipes")
-                                    .font(.headline)
-                                Text(error.localizedDescription)
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
-                                    .padding(.horizontal)
-                            }
+                    // Error View
+                    if let error = viewModel.error {
+                        Text(error)
+                            .foregroundColor(.red)
                             .padding()
-                            .padding(.top, 40)
-                        } else if likedRecipes.isEmpty {
-                            VStack(spacing: 16) {
-                                Image(systemName: "heart.slash")
-                                    .font(.largeTitle)
-                                    .foregroundColor(.secondary)
-                                Text("No liked recipes yet")
-                                    .font(.headline)
-                                Text("Like some recipes to see them here")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding()
-                            .padding(.top, 40)
+                    }
+                    
+                    // Content Grid
+                    switch selectedTab {
+                    case 0:
+                        if viewModel.userRecipes.isEmpty {
+                            EmptyStateView(
+                                systemImage: "fork.knife",
+                                title: "No Recipes Yet",
+                                message: "Your created recipes will appear here"
+                            )
                         } else {
-                            LazyVGrid(columns: [
-                                GridItem(.flexible(), spacing: 16),
-                                GridItem(.flexible(), spacing: 16)
-                            ], spacing: 16) {
-                                ForEach(likedRecipes) { recipe in
-                                    RecipeCard(recipe: recipe)
-                                }
-                            }
-                            .padding()
+                            recipesGrid(recipes: viewModel.userRecipes)
                         }
+                    case 1:
+                        if viewModel.likedRecipes.isEmpty {
+                            EmptyStateView(
+                                systemImage: "heart",
+                                title: "No Liked Recipes",
+                                message: "Recipes you like will appear here"
+                            )
+                        } else {
+                            recipesGrid(recipes: viewModel.likedRecipes)
+                        }
+                    case 2:
+                        if viewModel.bookmarkCollections.isEmpty {
+                            EmptyStateView(
+                                systemImage: "bookmark",
+                                title: "No Collections",
+                                message: "Create a collection to organize your favorite recipes"
+                            )
+                        } else {
+                            collectionsGrid
+                        }
+                    default:
+                        EmptyView()
                     }
                 }
             }
             .navigationTitle("Profile")
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: {
-                        authViewModel.signOut()
-                    }) {
-                        Image(systemName: "rectangle.portrait.and.arrow.right")
-                            .foregroundColor(.primary)
-                    }
+                Button(action: { showingSettings = true }) {
+                    Image(systemName: "gearshape.fill")
+                        .foregroundColor(.primary)
                 }
             }
-            .task {
-                await loadLikedRecipes()
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
             }
-            .refreshable {
-                await loadLikedRecipes()
-            }
+        }
+        .task {
+            await viewModel.loadUserData()
         }
     }
     
-    private func loadLikedRecipes() async {
-        guard let likedIds = authViewModel.userProfile?.likedRecipes else { return }
-        
-        isLoading = true
-        do {
-            var recipes: [Recipe] = []
-            // Load recipes in batches to avoid hitting Firestore limits
-            let batchSize = 10
-            for i in stride(from: 0, to: likedIds.count, by: batchSize) {
-                let end = min(i + batchSize, likedIds.count)
-                let batch = Array(likedIds[i..<end])
-                let batchRecipes = try await firebaseService.fetchRecipesByIds(batch)
-                recipes.append(contentsOf: batchRecipes)
-            }
-            await MainActor.run {
-                self.likedRecipes = recipes
-                self.error = nil
-            }
-        } catch {
-            await MainActor.run {
-                self.error = error
+    private var collectionsGrid: some View {
+        LazyVGrid(columns: columns, spacing: 16) {
+            ForEach(viewModel.bookmarkCollections) { collection in
+                NavigationLink {
+                    BookmarkCollectionDetailView(collection: collection)
+                } label: {
+                    CollectionCard(collection: collection)
+                }
             }
         }
-        await MainActor.run {
-            isLoading = false
+        .padding(.horizontal)
+    }
+    
+    private func recipesGrid(recipes: [Recipe]) -> some View {
+        LazyVGrid(columns: columns, spacing: 16) {
+            ForEach(recipes) { recipe in
+                CollectionRecipeCard(recipe: recipe)
+            }
         }
+        .padding(.horizontal)
+    }
+}
+
+// MARK: - Supporting Views
+
+private struct StatButton: View {
+    let count: Int
+    let label: String
+    let systemImage: String
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.title2)
+                .foregroundColor(.accentColor)
+            
+            Text("\(count)")
+                .font(.title2)
+                .fontWeight(.bold)
+            
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(.gray)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(Color(.secondarySystemGroupedBackground))
+        .cornerRadius(12)
+    }
+}
+
+private struct EmptyStateView: View {
+    let systemImage: String
+    let title: String
+    let message: String
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: systemImage)
+                .font(.system(size: 60))
+                .foregroundColor(.gray)
+            
+            Text(title)
+                .font(.headline)
+            
+            Text(message)
+                .font(.subheadline)
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+        }
+        .padding(.top, 40)
     }
 }
 
 #Preview {
-    NavigationView {
-        ProfileView()
-            .environmentObject(AuthViewModel())
-    }
+    ProfileView()
 } 

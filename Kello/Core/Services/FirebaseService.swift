@@ -194,6 +194,219 @@ class FirebaseService {
             ])
     }
     
+    // MARK: - Bookmark Collections
+    
+    func createBookmarkCollection(name: String, description: String? = nil) async throws -> BookmarkCollection {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw AuthError.userNotFound
+        }
+        
+        let collection = BookmarkCollection(
+            userId: userId,
+            name: name,
+            description: description
+        )
+        
+        let docRef = try await config.firestore
+            .collection("bookmarkCollections")
+            .addDocument(data: collection.toDictionary())
+        
+        return BookmarkCollection(
+            id: docRef.documentID,
+            userId: collection.userId,
+            name: collection.name,
+            description: collection.description,
+            recipeIds: [],
+            thumbnailURL: nil
+        )
+    }
+    
+    func deleteBookmarkCollection(_ collectionId: String) async throws {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw AuthError.userNotFound
+        }
+        
+        // Verify ownership before deleting
+        let doc = try await config.firestore
+            .collection("bookmarkCollections")
+            .document(collectionId)
+            .getDocument()
+        
+        guard let data = doc.data(),
+              let collectionUserId = data["userId"] as? String,
+              collectionUserId == userId else {
+            throw AuthError.userNotFound
+        }
+        
+        try await config.firestore
+            .collection("bookmarkCollections")
+            .document(collectionId)
+            .delete()
+    }
+    
+    func updateBookmarkCollection(_ collection: BookmarkCollection) async throws {
+        guard let userId = Auth.auth().currentUser?.uid,
+              userId == collection.userId else {
+            throw AuthError.userNotFound
+        }
+        
+        try await config.firestore
+            .collection("bookmarkCollections")
+            .document(collection.id)
+            .updateData([
+                "name": collection.name,
+                "description": collection.description as Any,
+                "updatedAt": Timestamp(date: Date()),
+                "thumbnailURL": collection.thumbnailURL as Any
+            ])
+    }
+    
+    func addRecipeToCollection(recipeId: String, collectionId: String) async throws {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw AuthError.userNotFound
+        }
+        
+        // Verify collection ownership
+        let doc = try await config.firestore
+            .collection("bookmarkCollections")
+            .document(collectionId)
+            .getDocument()
+        
+        guard let data = doc.data(),
+              let collectionUserId = data["userId"] as? String,
+              collectionUserId == userId else {
+            throw AuthError.userNotFound
+        }
+        
+        // Get recipe thumbnail for first recipe
+        let recipeIds = (data["recipeIds"] as? [String]) ?? []
+        if recipeIds.isEmpty {
+            let recipe = try await config.firestore
+                .collection("recipes")
+                .document(recipeId)
+                .getDocument()
+            
+            if let recipeData = recipe.data(),
+               let thumbnailURL = recipeData["thumbnailURL"] as? String {
+                try await config.firestore
+                    .collection("bookmarkCollections")
+                    .document(collectionId)
+                    .updateData([
+                        "recipeIds": FieldValue.arrayUnion([recipeId]),
+                        "thumbnailURL": thumbnailURL,
+                        "updatedAt": Timestamp(date: Date())
+                    ])
+                return
+            }
+        }
+        
+        // If not first recipe or thumbnail not found, just add the recipe
+        try await config.firestore
+            .collection("bookmarkCollections")
+            .document(collectionId)
+            .updateData([
+                "recipeIds": FieldValue.arrayUnion([recipeId]),
+                "updatedAt": Timestamp(date: Date())
+            ])
+    }
+    
+    func removeRecipeFromCollection(recipeId: String, collectionId: String) async throws {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw AuthError.userNotFound
+        }
+        
+        // Verify collection ownership
+        let doc = try await config.firestore
+            .collection("bookmarkCollections")
+            .document(collectionId)
+            .getDocument()
+        
+        guard let data = doc.data(),
+              let collectionUserId = data["userId"] as? String,
+              collectionUserId == userId else {
+            throw AuthError.userNotFound
+        }
+        
+        try await config.firestore
+            .collection("bookmarkCollections")
+            .document(collectionId)
+            .updateData([
+                "recipeIds": FieldValue.arrayRemove([recipeId]),
+                "updatedAt": Timestamp(date: Date())
+            ])
+        
+        // If this was the first recipe (thumbnail), update thumbnail to next recipe if available
+        if let thumbnailURL = data["thumbnailURL"] as? String,
+           let recipeIds = data["recipeIds"] as? [String],
+           recipeIds.first == recipeId,
+           let nextRecipeId = recipeIds.dropFirst().first {
+            let nextRecipe = try await config.firestore
+                .collection("recipes")
+                .document(nextRecipeId)
+                .getDocument()
+            
+            if let recipeData = nextRecipe.data(),
+               let newThumbnailURL = recipeData["thumbnailURL"] as? String {
+                try await config.firestore
+                    .collection("bookmarkCollections")
+                    .document(collectionId)
+                    .updateData([
+                        "thumbnailURL": newThumbnailURL
+                    ])
+            }
+        }
+    }
+    
+    func fetchBookmarkCollections() async throws -> [BookmarkCollection] {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw AuthError.userNotFound
+        }
+        
+        let snapshot = try await config.firestore
+            .collection("bookmarkCollections")
+            .whereField("userId", isEqualTo: userId)
+            .order(by: "createdAt", descending: true)
+            .getDocuments()
+        
+        return snapshot.documents.compactMap { BookmarkCollection(from: $0) }
+    }
+    
+    func fetchRecipesForCollection(_ collectionId: String) async throws -> [Recipe] {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw AuthError.userNotFound
+        }
+        
+        // Get collection and verify ownership
+        let doc = try await config.firestore
+            .collection("bookmarkCollections")
+            .document(collectionId)
+            .getDocument()
+        
+        guard let data = doc.data(),
+              let collectionUserId = data["userId"] as? String,
+              collectionUserId == userId,
+              let recipeIds = data["recipeIds"] as? [String] else {
+            throw AuthError.userNotFound
+        }
+        
+        // If no recipes, return empty array
+        if recipeIds.isEmpty {
+            return []
+        }
+        
+        // Fetch recipes in batches to avoid Firestore limits
+        var recipes: [Recipe] = []
+        let batchSize = 10
+        for i in stride(from: 0, to: recipeIds.count, by: batchSize) {
+            let end = min(i + batchSize, recipeIds.count)
+            let batch = Array(recipeIds[i..<end])
+            let batchRecipes = try await fetchRecipesByIds(batch)
+            recipes.append(contentsOf: batchRecipes)
+        }
+        
+        return recipes
+    }
+    
     // MARK: - Filtering
     
     func filterRecipes(
@@ -513,5 +726,38 @@ class FirebaseService {
             
             return nil
         }
+    }
+    
+    // MARK: - User Recipe Operations
+    
+    func fetchUserRecipes() async throws -> [Recipe] {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw AuthError.userNotFound
+        }
+        
+        let snapshot = try await config.firestore
+            .collection("recipes")
+            .whereField("userId", isEqualTo: userId)
+            .order(by: "createdAt", descending: true)
+            .getDocuments()
+        
+        return try await decodeRecipes(from: snapshot.documents)
+    }
+    
+    func fetchUserLikedRecipeIds() async throws -> [String] {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            throw AuthError.userNotFound
+        }
+        
+        let doc = try await config.firestore
+            .collection("users")
+            .document(userId)
+            .getDocument()
+        
+        guard let data = doc.data() else {
+            return []
+        }
+        
+        return (data["likedRecipes"] as? [String]) ?? []
     }
 } 
