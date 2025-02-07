@@ -14,9 +14,16 @@ Kello is designed for culinary enthusiasts who want to explore recipe videos in 
 
 ### Core Video Feed
 - **Vertical Swiping:** Swipe between recipe videos with smooth transitions.
-- **Auto-Playback:** Videos auto-play as they enter the user’s view, with minimal buffering.
+- **Auto-Playback:** Videos auto-play as they enter the user's view, with minimal buffering.
 - **Engagement Metrics:** Each video displays likes, comments, shares, and recipe details.
 - **Infinite Scrolling & Pagination:** Efficient loading and recycling of video cards to maintain performance.
+
+### Recipe Creation
+- **Video Upload:** Select and upload recipe videos directly from your device's camera roll.
+- **Recipe Details:** Add comprehensive recipe information including title, description, cooking time, cuisine type, and meal type.
+- **Ingredients & Steps:** Dynamic input fields for adding ingredients and step-by-step cooking instructions.
+- **Form Validation:** Real-time validation ensures all required information is provided before submission.
+- **Progress Feedback:** Visual feedback during the upload process with loading indicators.
 
 ### Content Filtering & Discovery
 - **Filter Recipes:** Users can filter videos by cooking time ranges (e.g., under 15 min, 15–30 min, etc.), cuisine types, and meal types.
@@ -66,7 +73,7 @@ Kello is designed for culinary enthusiasts who want to explore recipe videos in 
 
 3. **Firebase Setup:**
    - Ensure you have a valid Firebase project.
-   - Place your `GoogleService-Info.plist` in the project’s Resources (it is already handled in the `.gitignore`).
+   - Place your `GoogleService-Info.plist` in the project's Resources (it is already handled in the `.gitignore`).
    - The Firebase configuration is handled in `FirebaseConfig.swift`.
 
 4. **Build & Run:**
