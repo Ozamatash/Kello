@@ -6,6 +6,7 @@ struct RecipeVideoView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var feedViewModel: FeedViewModel
     @GestureState private var dragOffset: CGFloat = 0
     @State private var isActive = false
     @State private var isViewReady = false
@@ -16,10 +17,7 @@ struct RecipeVideoView: View {
                 recipe: recipe,
                 isVisible: isActive && isViewReady,
                 nextVideoURL: nil,
-                viewModel: FeedViewModel(
-                    modelContext: modelContext,
-                    authViewModel: authViewModel
-                )
+                viewModel: feedViewModel
             )
             .offset(y: dragOffset)
             .opacity(calculateOpacity(dragOffset: dragOffset))
@@ -62,6 +60,11 @@ struct RecipeVideoView: View {
         .onAppear {
             isViewReady = true
             isActive = true
+            
+            // Add recipe to FeedViewModel if not already present
+            if !feedViewModel.recipes.contains(recipe) {
+                feedViewModel.recipes.append(recipe)
+            }
         }
     }
     
@@ -78,6 +81,11 @@ struct RecipeVideoView: View {
         configurations: ModelConfiguration(isStoredInMemoryOnly: true)
     )
     
+    let feedViewModel = FeedViewModel(
+        modelContext: container.mainContext,
+        authViewModel: AuthViewModel()
+    )
+    
     return RecipeVideoView(recipe: Recipe(
         id: "test",
         title: "Test Recipe",
@@ -91,4 +99,5 @@ struct RecipeVideoView: View {
     ))
     .modelContainer(container)
     .environmentObject(AuthViewModel())
+    .environmentObject(feedViewModel)
 } 

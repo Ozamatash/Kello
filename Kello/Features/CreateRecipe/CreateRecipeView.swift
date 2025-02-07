@@ -4,6 +4,11 @@ struct CreateRecipeView: View {
     @StateObject private var viewModel = CreateRecipeViewModel()
     @State private var selectedVideoURL: URL?
     @State private var showingVideoPicker = false
+    @FocusState private var focusedField: Field?
+    
+    enum Field: Hashable {
+        case title, description, ingredient(Int), step(Int)
+    }
     
     // Form fields
     @State private var title = ""
@@ -32,6 +37,7 @@ struct CreateRecipeView: View {
         ingredients = [""]
         steps = [""]
         selectedVideoURL = nil
+        focusedField = nil
     }
     
     var body: some View {
@@ -41,8 +47,16 @@ struct CreateRecipeView: View {
                     // Basic Information Section
                     Section("Basic Information") {
                         TextField("Recipe Title", text: $title)
+                            .focused($focusedField, equals: .title)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.words)
+                            .submitLabel(.next)
                         TextField("Description", text: $description, axis: .vertical)
+                            .focused($focusedField, equals: .description)
                             .lineLimit(3...6)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.sentences)
+                            .submitLabel(.done)
                         
                         Picker("Cuisine Type", selection: $selectedCuisineType) {
                             ForEach(cuisineTypes, id: \.self) { cuisine in
@@ -89,6 +103,10 @@ struct CreateRecipeView: View {
                         ForEach($ingredients.indices, id: \.self) { index in
                             HStack {
                                 TextField("Ingredient \(index + 1)", text: $ingredients[index])
+                                    .focused($focusedField, equals: .ingredient(index))
+                                    .autocorrectionDisabled()
+                                    .textInputAutocapitalization(.words)
+                                    .submitLabel(.done)
                                 
                                 if ingredients.count > 1 {
                                     Button {
@@ -121,7 +139,11 @@ struct CreateRecipeView: View {
                                 
                                 HStack(alignment: .top) {
                                     TextField("Describe this step", text: $steps[index], axis: .vertical)
+                                        .focused($focusedField, equals: .step(index))
                                         .lineLimit(2...4)
+                                        .autocorrectionDisabled()
+                                        .textInputAutocapitalization(.sentences)
+                                        .submitLabel(.done)
                                     
                                     if steps.count > 1 {
                                         Button {
@@ -135,7 +157,7 @@ struct CreateRecipeView: View {
                                     }
                                 }
                             }
-                            .padding(.vertical, 4)
+                            .padding(.vertical, 2)
                         }
                         
                         Button {
@@ -149,10 +171,12 @@ struct CreateRecipeView: View {
                         .padding(.vertical, 8)
                     }
                 }
+                .scrollDismissesKeyboard(.interactively)
                 .navigationTitle("Create Recipe")
                 .toolbar {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Button("Create") {
+                            focusedField = nil  // Dismiss keyboard before creating
                             Task {
                                 await viewModel.createRecipe(
                                     title: title,

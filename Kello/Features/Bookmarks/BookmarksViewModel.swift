@@ -89,6 +89,12 @@ class BookmarksViewModel: ObservableObject {
     
     // MARK: - Recipe Operations
     
+    func isRecipeBookmarked(_ recipeId: String) -> Bool {
+        return collections.contains { collection in
+            collection.recipeIds.contains(recipeId)
+        }
+    }
+    
     func loadRecipesForCollection(_ collectionId: String) {
         Task {
             isLoading = true
@@ -106,6 +112,12 @@ class BookmarksViewModel: ObservableObject {
         Task {
             do {
                 try await firebaseService.addRecipeToCollection(recipeId: recipeId, collectionId: collectionId)
+                
+                // Update local state immediately
+                if let index = collections.firstIndex(where: { $0.id == collectionId }) {
+                    collections[index].recipeIds.append(recipeId)
+                }
+                
                 // Refresh collection if it's the selected one
                 if selectedCollection?.id == collectionId {
                     loadRecipesForCollection(collectionId)
@@ -121,7 +133,13 @@ class BookmarksViewModel: ObservableObject {
         Task {
             do {
                 try await firebaseService.removeRecipeFromCollection(recipeId: recipeId, collectionId: collectionId)
-                // Update local state
+                
+                // Update local state immediately
+                if let index = collections.firstIndex(where: { $0.id == collectionId }) {
+                    collections[index].recipeIds.removeAll { $0 == recipeId }
+                }
+                
+                // Update local state for recipes in collection
                 recipesInCollection.removeAll { $0.id == recipeId }
                 error = nil
             } catch {

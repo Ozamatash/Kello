@@ -11,14 +11,23 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @StateObject private var feedViewModel: FeedViewModel
     @State private var selectedTab = 0
+    
+    init() {
+        let viewModel = FeedViewModel(
+            modelContext: ModelContext(try! ModelContainer(for: Recipe.self)),
+            authViewModel: AuthViewModel()
+        )
+        _feedViewModel = StateObject(wrappedValue: viewModel)
+    }
     
     var body: some View {
         TabView(selection: $selectedTab) {
             FeedView(
                 modelContext: modelContext,
                 isTabActive: selectedTab == 0,
-                authViewModel: authViewModel
+                viewModel: feedViewModel
             )
             .tabItem {
                 Label("Feed", systemImage: "play.circle.fill")
@@ -74,6 +83,7 @@ struct ContentView: View {
             #endif
         }
         .tint(.primary)
+        .environmentObject(feedViewModel)
     }
 }
 

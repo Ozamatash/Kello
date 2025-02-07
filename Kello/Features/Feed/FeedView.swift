@@ -8,9 +8,9 @@ struct FeedView: View {
     @State private var hasInitiallyLoaded = false
     let isTabActive: Bool
     
-    init(modelContext: ModelContext, isTabActive: Bool, authViewModel: AuthViewModel) {
-        _viewModel = StateObject(wrappedValue: FeedViewModel(modelContext: modelContext, authViewModel: authViewModel))
+    init(modelContext: ModelContext, isTabActive: Bool, viewModel: FeedViewModel) {
         self.isTabActive = isTabActive
+        _viewModel = StateObject(wrappedValue: viewModel)
     }
     
     var body: some View {

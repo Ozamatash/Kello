@@ -32,6 +32,7 @@ struct VideoCard: View {
                 RecipeOverlay(
                     recipe: recipe,
                     viewModel: viewModel,
+                    bookmarksViewModel: bookmarksViewModel,
                     onDetailsPressed: {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                             showingDetails = true
@@ -80,12 +81,16 @@ struct VideoCard: View {
             .presentationDragIndicator(.visible)
             .presentationDetents([.medium])
         }
+        .task {
+            bookmarksViewModel.loadCollections()
+        }
     }
 }
 
 private struct RecipeOverlay: View {
     let recipe: Recipe
     @ObservedObject var viewModel: FeedViewModel
+    @ObservedObject var bookmarksViewModel: BookmarksViewModel
     let onDetailsPressed: () -> Void
     let onCommentsPressed: () -> Void
     let onBookmarkPressed: () -> Void
@@ -154,7 +159,7 @@ private struct RecipeOverlay: View {
                 // Bookmark Button
                 VStack(spacing: 2) {
                     Button(action: onBookmarkPressed) {
-                        Image(systemName: "bookmark")
+                        Image(systemName: bookmarksViewModel.isRecipeBookmarked(recipe.id) ? "bookmark.fill" : "bookmark")
                             .font(.system(size: 24))
                             .foregroundColor(.white)
                     }
