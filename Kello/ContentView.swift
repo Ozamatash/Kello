@@ -11,7 +11,7 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var authViewModel: AuthViewModel
-    @State private var selectedTab = 1  // Start on Discover tab
+    @State private var selectedTab = 0
     
     var body: some View {
         TabView(selection: $selectedTab) {
