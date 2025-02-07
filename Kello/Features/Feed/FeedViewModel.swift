@@ -13,10 +13,6 @@ class FeedViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var error: Error?
     
-    // Filters
-    @Published var selectedTimeFilter: CookingTimeFilter?
-    @Published var selectedCuisine: String?
-    
     // Like state tracking
     @Published var likedRecipeIds: Set<String> = []
     
@@ -25,7 +21,9 @@ class FeedViewModel: ObservableObject {
     init(modelContext: ModelContext, authViewModel: AuthViewModel) {
         self.modelContext = modelContext
         self.authViewModel = authViewModel
-        Task {
+        
+        // Initialize async task to load liked recipes
+        Task { @MainActor in
             await loadLikedRecipes()
         }
     }
@@ -34,7 +32,7 @@ class FeedViewModel: ObservableObject {
     
     @MainActor
     private func loadLikedRecipes() async {
-        if let userProfile = await authViewModel.userProfile {
+        if let userProfile = authViewModel.userProfile {
             likedRecipeIds = Set(userProfile.likedRecipes)
         }
     }
@@ -48,14 +46,9 @@ class FeedViewModel: ObservableObject {
     func loadInitialRecipes() async {
         guard !isLoading else { return }
         
-        print("DEBUG: Loading initial recipes with filters - timeFilter: \(String(describing: selectedTimeFilter)), cuisine: \(String(describing: selectedCuisine))")
         isLoading = true
         do {
-            recipes = try await firebaseService.filterRecipes(
-                timeFilter: selectedTimeFilter,
-                cuisine: selectedCuisine
-            )
-            print("DEBUG: Loaded \(recipes.count) recipes")
+            recipes = try await firebaseService.filterRecipes()
             error = nil
         } catch {
             self.error = error
@@ -71,11 +64,7 @@ class FeedViewModel: ObservableObject {
         
         isLoading = true
         do {
-            let newRecipes = try await firebaseService.filterMoreRecipes(
-                after: lastRecipe,
-                timeFilter: selectedTimeFilter,
-                cuisine: selectedCuisine
-            )
+            let newRecipes = try await firebaseService.filterMoreRecipes(after: lastRecipe)
             recipes.append(contentsOf: newRecipes)
             error = nil
         } catch {
@@ -83,15 +72,6 @@ class FeedViewModel: ObservableObject {
             print("Error loading more recipes: \(error)")
         }
         isLoading = false
-    }
-    
-    func applyFilters(timeFilter: CookingTimeFilter?, cuisine: String?) {
-        print("DEBUG: Applying filters - timeFilter: \(String(describing: timeFilter)), cuisine: \(String(describing: cuisine))")
-        selectedTimeFilter = timeFilter
-        selectedCuisine = cuisine
-        Task { @MainActor in
-            await loadInitialRecipes()
-        }
     }
     
     @MainActor
@@ -116,7 +96,7 @@ class FeedViewModel: ObservableObject {
     
     func shareRecipe(at index: Int) {
         guard index < recipes.count else { return }
-        let recipe = recipes[index]
+        let _ = recipes[index]
         // TODO: Implement share functionality
         // This will be implemented when we add UIActivityViewController integration
     }

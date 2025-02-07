@@ -85,5 +85,4 @@ struct CollectionRecipeCard: View {
         showRemoveButton: true
     )
     .padding()
-    .previewLayout(.sizeThatFits)
 } 

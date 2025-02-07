@@ -45,13 +45,13 @@ class CommentsViewModel: ObservableObject {
         Task {
             do {
                 if comment.isLikedByCurrentUser {
-                    try await firebaseService.unlikeComment(commentId: comment.id)
+                    try await firebaseService.unlikeComment(comment.id)
                     if let index = comments.firstIndex(where: { $0.id == comment.id }) {
                         comments[index].likes -= 1
                         comments[index].isLikedByCurrentUser = false
                     }
                 } else {
-                    try await firebaseService.likeComment(commentId: comment.id)
+                    try await firebaseService.likeComment(comment.id)
                     if let index = comments.firstIndex(where: { $0.id == comment.id }) {
                         comments[index].likes += 1
                         comments[index].isLikedByCurrentUser = true

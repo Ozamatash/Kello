@@ -53,16 +53,14 @@ struct CollectionCard: View {
     }
 }
 
-#Preview {
+#Preview(traits: .sizeThatFitsLayout) {
     CollectionCard(
         collection: BookmarkCollection(
-            id: "test",
-            userId: "user1",
+            userId: "test",
             name: "Italian Favorites",
-            description: "My favorite Italian recipes that I've collected over the years. Perfect for family dinners!",
-            recipeIds: ["1", "2", "3"]
+            description: "My favorite Italian recipes",
+            thumbnailURL: "https://example.com/thumbnail.jpg"
         )
     )
     .padding()
-    .previewLayout(.sizeThatFits)
 } 

@@ -12,11 +12,18 @@ class AuthViewModel: ObservableObject {
     @Published var error: Error?
     
     private let authService = AuthService.shared
+    private var stateListener: AuthStateDidChangeListenerHandle?
     
     // MARK: - Initialization
     
     init() {
         setupAuthStateListener()
+    }
+    
+    deinit {
+        if let listener = stateListener {
+            Auth.auth().removeStateDidChangeListener(listener)
+        }
     }
     
     // MARK: - Authentication Methods
@@ -124,18 +131,16 @@ class AuthViewModel: ObservableObject {
     // MARK: - Private Methods
     
     private func setupAuthStateListener() {
-        Auth.auth().addStateDidChangeListener { [weak self] _, user in
-            guard let self = self else { return }
-            
-            self.user = user
-            self.isAuthenticated = user != nil
-            
-            if user != nil {
-                Task {
-                    await self.loadUserProfile()
+        stateListener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
+            Task { @MainActor in
+                self?.user = user
+                self?.isAuthenticated = user != nil
+                
+                if user != nil {
+                    await self?.loadUserProfile()
+                } else {
+                    self?.userProfile = nil
                 }
-            } else {
-                self.userProfile = nil
             }
         }
     }

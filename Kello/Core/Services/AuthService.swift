@@ -29,7 +29,7 @@ class AuthService {
     
     private func createUserProfile(for user: User) async throws {
         let profile = UserProfile(from: user)
-        try await db.collection("users").document(user.uid).setData(from: profile)
+        try db.collection("users").document(user.uid).setData(from: profile)
     }
     
     private func updateLastLoginTimestamp(for user: User) async throws {

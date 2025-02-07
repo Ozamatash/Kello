@@ -336,7 +336,7 @@ class FirebaseService {
             ])
         
         // If this was the first recipe (thumbnail), update thumbnail to next recipe if available
-        if let thumbnailURL = data["thumbnailURL"] as? String,
+        if let _ = data["thumbnailURL"] as? String,
            let recipeIds = data["recipeIds"] as? [String],
            recipeIds.first == recipeId,
            let nextRecipeId = recipeIds.dropFirst().first {
@@ -676,7 +676,7 @@ class FirebaseService {
         return comment
     }
     
-    func likeComment(commentId: String) async throws {
+    func likeComment(_ commentId: String) async throws {
         guard let currentUser = config.auth.currentUser else {
             throw AuthError.userNotFound
         }
@@ -684,7 +684,7 @@ class FirebaseService {
         let commentRef = config.firestore.collection("comments").document(commentId)
         let likeRef = commentRef.collection("likes").document(currentUser.uid)
         
-        try await config.firestore.runTransaction { transaction, _ -> Any? in
+        _ = try await config.firestore.runTransaction { transaction, _ -> Any? in
             let commentDoc: DocumentSnapshot
             do {
                 commentDoc = try transaction.getDocument(commentRef)
@@ -696,13 +696,13 @@ class FirebaseService {
             
             likes += 1
             transaction.updateData(["likes": likes], forDocument: commentRef)
-            transaction.setData(["timestamp": Timestamp()], forDocument: likeRef)
+            transaction.setData(["userId": currentUser.uid], forDocument: likeRef)
             
             return nil
         }
     }
     
-    func unlikeComment(commentId: String) async throws {
+    func unlikeComment(_ commentId: String) async throws {
         guard let currentUser = config.auth.currentUser else {
             throw AuthError.userNotFound
         }
@@ -710,7 +710,7 @@ class FirebaseService {
         let commentRef = config.firestore.collection("comments").document(commentId)
         let likeRef = commentRef.collection("likes").document(currentUser.uid)
         
-        try await config.firestore.runTransaction { transaction, _ -> Any? in
+        _ = try await config.firestore.runTransaction { transaction, _ -> Any? in
             let commentDoc: DocumentSnapshot
             do {
                 commentDoc = try transaction.getDocument(commentRef)

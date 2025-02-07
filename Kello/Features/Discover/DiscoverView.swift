@@ -149,12 +149,7 @@ struct DiscoverView: View {
         isSearching = true
         searchError = nil
         
-        do {
-            await viewModel.performSearch(searchTerm)
-        } catch {
-            searchError = error
-        }
-        
+        await viewModel.performSearch(searchTerm)
         isSearching = false
     }
 }

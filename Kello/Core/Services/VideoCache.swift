@@ -23,7 +23,7 @@ class VideoCache {
         )
         
         // Check cache first
-        if let cachedResponse = URLCache.shared.cachedResponse(for: request) {
+        if URLCache.shared.cachedResponse(for: request) != nil {
             print("🎥 Using cached video: \(url.lastPathComponent)")
             return url
         }
@@ -32,7 +32,7 @@ class VideoCache {
         print("🎥 Streaming video: \(url.lastPathComponent)")
         Task {
             do {
-                let (_, response) = try await URLSession.shared.data(for: request)
+                let (_, _) = try await URLSession.shared.data(for: request)
                 print("🎥 Background caching complete: \(url.lastPathComponent)")
             } catch {
                 print("❌ Background caching failed: \(error.localizedDescription)")
