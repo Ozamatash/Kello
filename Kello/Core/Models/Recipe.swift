@@ -35,7 +35,13 @@ class Recipe: Identifiable, Equatable {
     // Computed property for semantic search
     var ingredientsText: String {
         let ingredientsList = ingredients.joined(separator: ", ")
-        return "\(title). \(recipeDescription). Ingredients: \(ingredientsList)"
+        let stepsList = steps.joined(separator: ". ")
+        return """
+            \(title). \(recipeDescription). 
+            Cuisine: \(cuisineType). Meal type: \(mealType).
+            Ingredients: \(ingredientsList).
+            Instructions: \(stepsList)
+            """
     }
     
     // MARK: - Equatable

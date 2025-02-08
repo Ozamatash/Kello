@@ -99,3 +99,6 @@ GoogleService-Info.plist
 .vscode/
 *.swp
 *.swo 
+
+# recipe dataset
+recipes/
