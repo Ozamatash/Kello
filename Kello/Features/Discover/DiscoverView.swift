@@ -71,47 +71,65 @@ struct DiscoverView: View {
                     }
                     
                     // Content area
-                    if isSearching || viewModel.isLoading {
-                        ProgressView("Loading recipes...")
+                    if viewModel.recipes.isEmpty {
+                        if isSearching || viewModel.isLoading {
+                            ProgressView("Loading recipes...")
+                                .padding(.top, 40)
+                        } else if let error = searchError ?? viewModel.error {
+                            VStack(spacing: 16) {
+                                Image(systemName: "exclamationmark.triangle")
+                                    .font(.largeTitle)
+                                    .foregroundColor(.orange)
+                                Text("Error loading recipes")
+                                    .font(.headline)
+                                Text(error.localizedDescription)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal)
+                            }
+                            .padding()
                             .padding(.top, 40)
-                    } else if let error = searchError ?? viewModel.error {
-                        VStack(spacing: 16) {
-                            Image(systemName: "exclamationmark.triangle")
-                                .font(.largeTitle)
-                                .foregroundColor(.orange)
-                            Text("Error loading recipes")
-                                .font(.headline)
-                            Text(error.localizedDescription)
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal)
+                        } else if !searchTerm.isEmpty {
+                            VStack(spacing: 16) {
+                                Image(systemName: "magnifyingglass")
+                                    .font(.largeTitle)
+                                    .foregroundColor(.secondary)
+                                Text("No recipes found")
+                                    .font(.headline)
+                                Text("Try different ingredients or adjust your filters")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding()
+                            .padding(.top, 40)
                         }
-                        .padding()
-                        .padding(.top, 40)
-                    } else if viewModel.recipes.isEmpty && !searchTerm.isEmpty {
-                        VStack(spacing: 16) {
-                            Image(systemName: "magnifyingglass")
-                                .font(.largeTitle)
-                                .foregroundColor(.secondary)
-                            Text("No recipes found")
-                                .font(.headline)
-                            Text("Try different ingredients or adjust your filters")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding()
-                        .padding(.top, 40)
                     } else {
                         LazyVGrid(columns: [
                             GridItem(.flexible(), spacing: 16),
                             GridItem(.flexible(), spacing: 16)
-                        ], spacing: 16) {
+                        ], spacing: 24) {
                             ForEach(viewModel.recipes) { recipe in
                                 RecipeCard(recipe: recipe)
+                                    .onAppear {
+                                        // If this is one of the last few items, load more
+                                        if recipe.id == viewModel.recipes.last?.id ||
+                                           viewModel.recipes.suffix(4).contains(where: { $0.id == recipe.id }) {
+                                            Task {
+                                                await viewModel.loadMoreRecipes()
+                                            }
+                                        }
+                                    }
                             }
                         }
                         .padding()
+                        
+                        // Show loading indicator at the bottom while keeping recipes visible
+                        if viewModel.isLoading {
+                            ProgressView()
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                        }
                     }
                 }
             }
@@ -170,80 +188,6 @@ struct FilterChip: View {
                 .background(isSelected ? Color.accentColor : Color(.systemGray6))
                 .foregroundColor(isSelected ? .white : .primary)
                 .cornerRadius(16)
-        }
-    }
-}
-
-struct RecipeCard: View {
-    let recipe: Recipe
-    @State private var showingVideo = false
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            thumbnailImage
-            recipeInfo
-                .padding(.horizontal, 8)
-                .padding(.bottom, 8)
-        }
-        .frame(height: 170) // Fixed card height
-        .frame(width: 160) // Fixed card width
-        .background {
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemGroupedBackground))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(.quaternary, lineWidth: 1)
-                }
-        }
-        .onTapGesture {
-            showingVideo = true
-        }
-        .fullScreenCover(isPresented: $showingVideo) {
-            RecipeVideoView(recipe: recipe)
-        }
-    }
-    
-    private var thumbnailImage: some View {
-        AsyncImage(url: URL(string: recipe.thumbnailURL)) { image in
-            image
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-        } placeholder: {
-            Color(.systemGray4)
-        }
-        .frame(height: 100)  // Slightly reduced height
-        .frame(maxWidth: .infinity)
-        .clipped()
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
-    
-    private var recipeInfo: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(recipe.title)
-                .font(.callout)  // Smaller font
-                .fontWeight(.medium)
-                .lineLimit(2)
-                .frame(height: 36)  // Adjusted for smaller font
-            
-            HStack(spacing: 4) {  // Reduced spacing
-                Label {
-                    Text("\(recipe.cookingTime)m")
-                        .lineLimit(1)
-                } icon: {
-                    Image(systemName: "clock")
-                        .imageScale(.small)
-                }
-                Spacer(minLength: 4)
-                Label {
-                    Text(recipe.cuisineType)
-                        .lineLimit(1)
-                } icon: {
-                    Image(systemName: "fork.knife")
-                        .imageScale(.small)
-                }
-            }
-            .font(.caption2)  // Smaller font
-            .foregroundColor(.secondary)
         }
     }
 }

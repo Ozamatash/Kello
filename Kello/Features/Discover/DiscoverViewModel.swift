@@ -47,6 +47,7 @@ final class DiscoverViewModel: ObservableObject {
     @Published private(set) var recipes: [Recipe] = []
     @Published private(set) var isLoading = false
     @Published private(set) var error: Error?
+    @Published private(set) var hasMoreRecipes = true
     
     @Published var selectedTimeFilter: CookingTimeFilter?
     @Published var selectedCuisine: String?
@@ -62,6 +63,8 @@ final class DiscoverViewModel: ObservableObject {
         selectedTimeFilter != nil || selectedCuisine != nil || selectedMealType != nil
     }
     
+    private let pageSize = 50
+    private var lastLoadedRecipe: Recipe?
     private let firebaseService = FirebaseService.shared
     private let searchService = RecipeSearchService()
     private var loadingTask: Task<Void, Never>?
@@ -137,11 +140,53 @@ final class DiscoverViewModel: ObservableObject {
         }
     }
     
+    func loadMoreRecipes() async {
+        guard !isLoading,
+              hasMoreRecipes,
+              let lastRecipe = lastLoadedRecipe else { return }
+        
+        isLoading = true
+        do {
+            let newRecipes = try await firebaseService.filterMoreRecipes(
+                after: lastRecipe,
+                timeFilter: selectedTimeFilter,
+                cuisine: selectedCuisine,
+                mealType: selectedMealType?.rawValue,
+                limit: pageSize
+            )
+            
+            // Append new recipes without modifying existing ones
+            await MainActor.run {
+                // Create a set of existing recipe IDs for efficient lookup
+                let existingIds = Set(recipes.map { $0.id })
+                
+                // Filter out any recipes that already exist in our list
+                let uniqueNewRecipes = newRecipes.filter { !existingIds.contains($0.id) }
+                
+                recipes.append(contentsOf: uniqueNewRecipes)
+                lastLoadedRecipe = recipes.last
+                // Check if we got less unique recipes than requested, might need to load more
+                hasMoreRecipes = uniqueNewRecipes.count == pageSize || newRecipes.count == pageSize
+                error = nil
+            }
+        } catch {
+            await MainActor.run {
+                self.error = error
+            }
+        }
+        
+        await MainActor.run {
+            isLoading = false
+        }
+    }
+    
     // MARK: - Private Methods
     
     private func loadRecipes() {
         loadingTask?.cancel()
         recipes = []
+        lastLoadedRecipe = nil
+        hasMoreRecipes = true
         
         loadingTask = Task {
             // Debounce rapid filter changes
@@ -154,8 +199,10 @@ final class DiscoverViewModel: ObservableObject {
                     timeFilter: selectedTimeFilter,
                     cuisine: selectedCuisine,
                     mealType: selectedMealType?.rawValue,
-                    limit: 100
+                    limit: pageSize
                 )
+                lastLoadedRecipe = recipes.last
+                hasMoreRecipes = recipes.count == pageSize
                 error = nil
             } catch {
                 self.error = error
