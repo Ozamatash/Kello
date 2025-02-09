@@ -252,7 +252,7 @@ class VideoPlayerContainerViewController: UIViewController {
     private func setupPlayerLayer() {
         guard let player = viewModel.player else { return }
         let layer = AVPlayerLayer(player: player)
-        layer.videoGravity = .resizeAspectFill
+        layer.videoGravity = .resizeAspect
         layer.frame = view.bounds
         view.layer.addSublayer(layer)
         self.playerLayer = layer
