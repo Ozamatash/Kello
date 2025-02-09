@@ -5,6 +5,7 @@ import FirebaseFirestore
 class RecipeSearchService {
     private let functions = Functions.functions()
     private let firestore = Firestore.firestore()
+    private let firebaseService = FirebaseService.shared
     
     // Set up the callable function for semantic search
     private lazy var vectorSearchQueryCallable: Callable<QueryRequest, QueryResponse> = {
@@ -47,54 +48,8 @@ class RecipeSearchService {
             
             // If we got results, fetch the full recipe documents
             if !result.ids.isEmpty {
-                // Create document references for each ID
-                let docRefs = result.ids.map { firestore.collection("recipes").document($0) }
-                
-                // Fetch all documents in parallel
-                let documents = try await withThrowingTaskGroup(of: DocumentSnapshot?.self) { group in
-                    for docRef in docRefs {
-                        group.addTask {
-                            try await docRef.getDocument()
-                        }
-                    }
-                    
-                    var docs: [DocumentSnapshot] = []
-                    for try await doc in group {
-                        if let doc = doc {
-                            docs.append(doc)
-                        }
-                    }
-                    return docs
-                }
-                
-                // Convert Firestore documents to Recipe objects
-                return documents.compactMap { document in
-                    guard let data = document.data(),
-                          let title = data["title"] as? String,
-                          let description = data["description"] as? String,
-                          let cookingTime = data["cookingTime"] as? Int,
-                          let cuisineType = data["cuisineType"] as? String,
-                          let mealType = data["mealType"] as? String,
-                          let ingredients = data["ingredients"] as? [String],
-                          let steps = data["steps"] as? [String],
-                          let videoURL = data["videoURL"] as? String,
-                          let thumbnailURL = data["thumbnailURL"] as? String else {
-                        return nil
-                    }
-                    
-                    return Recipe(
-                        id: document.documentID, // Use the Firestore document ID
-                        title: title,
-                        description: description,
-                        cookingTime: cookingTime,
-                        cuisineType: cuisineType,
-                        mealType: mealType,
-                        ingredients: ingredients,
-                        steps: steps,
-                        videoURL: videoURL,
-                        thumbnailURL: thumbnailURL
-                    )
-                }
+                // Use FirebaseService to fetch recipes by IDs for consistent decoding
+                return try await firebaseService.fetchRecipesByIds(result.ids)
             }
             
             return []
