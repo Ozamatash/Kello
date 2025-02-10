@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		863A7C272D5ABDFB002A7562 /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = 863A7C262D5ABDFB002A7562 /* WebRTC */; };
 		869A08FC2D51464100A4DA36 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 869A08FB2D51464100A4DA36 /* FirebaseAuth */; };
 		869A08FE2D51464100A4DA36 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 869A08FD2D51464100A4DA36 /* FirebaseCore */; };
 		869A09002D51464100A4DA36 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 869A08FF2D51464100A4DA36 /* FirebaseStorage */; };
@@ -16,6 +17,7 @@
 		86ABC5422D513B6500DFDE6D /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 86ABC5412D513B6500DFDE6D /* FirebaseStorage */; };
 		86ABC5442D513EFB00DFDE6D /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 86ABC5432D513EFB00DFDE6D /* GoogleService-Info.plist */; };
 		86D45A082D53B00300F94DFC /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = 86D45A072D53B00300F94DFC /* FirebaseFunctions */; };
+		86DC34232D5A69AF00C8EA18 /* OpenAI-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 86DC34222D5A69AF00C8EA18 /* OpenAI-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -53,6 +55,7 @@
 		86ABC4E52D51269500DFDE6D /* KelloTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KelloTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		86ABC4EF2D51269500DFDE6D /* KelloUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KelloUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		86ABC5432D513EFB00DFDE6D /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		86DC34222D5A69AF00C8EA18 /* OpenAI-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "OpenAI-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -102,6 +105,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				863A7C272D5ABDFB002A7562 /* WebRTC in Frameworks */,
 				86ABC53E2D513B6500DFDE6D /* FirebaseAuth in Frameworks */,
 				86ABC5402D513B6500DFDE6D /* FirebaseFirestore in Frameworks */,
 				86ABC5422D513B6500DFDE6D /* FirebaseStorage in Frameworks */,
@@ -130,6 +134,7 @@
 			isa = PBXGroup;
 			children = (
 				86ABC5432D513EFB00DFDE6D /* GoogleService-Info.plist */,
+				86DC34222D5A69AF00C8EA18 /* OpenAI-Info.plist */,
 				86ABC4D52D51269300DFDE6D /* Kello */,
 				86ABC4E82D51269500DFDE6D /* KelloTests */,
 				86ABC4F22D51269500DFDE6D /* KelloUITests */,
@@ -195,6 +200,7 @@
 				86ABC53F2D513B6500DFDE6D /* FirebaseFirestore */,
 				86ABC5412D513B6500DFDE6D /* FirebaseStorage */,
 				86D45A072D53B00300F94DFC /* FirebaseFunctions */,
+				863A7C262D5ABDFB002A7562 /* WebRTC */,
 			);
 			productName = Kello;
 			productReference = 86ABC4D32D51269300DFDE6D /* Kello.app */;
@@ -283,6 +289,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				86ABC53C2D513B6500DFDE6D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				863A7C252D5ABDFB002A7562 /* XCRemoteSwiftPackageReference "WebRTC" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 86ABC4D42D51269300DFDE6D /* Products */;
@@ -303,6 +310,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				86ABC5442D513EFB00DFDE6D /* GoogleService-Info.plist in Resources */,
+				86DC34232D5A69AF00C8EA18 /* OpenAI-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -687,6 +695,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		863A7C252D5ABDFB002A7562 /* XCRemoteSwiftPackageReference "WebRTC" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stasel/WebRTC.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 130.0.0;
+			};
+		};
 		86ABC53C2D513B6500DFDE6D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
@@ -698,6 +714,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		863A7C262D5ABDFB002A7562 /* WebRTC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 863A7C252D5ABDFB002A7562 /* XCRemoteSwiftPackageReference "WebRTC" */;
+			productName = WebRTC;
+		};
 		869A08FB2D51464100A4DA36 /* FirebaseAuth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 86ABC53C2D513B6500DFDE6D /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;

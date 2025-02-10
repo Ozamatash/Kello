@@ -9,6 +9,7 @@ struct VideoCard: View {
     @State private var showingDetails = false
     @State private var showingComments = false
     @State private var showingBookmarkOptions = false
+    @State private var showingAssistant = false
     @StateObject private var bookmarksViewModel = BookmarksViewModel()
     
     init(recipe: Recipe, isVisible: Bool, nextVideoURL: String?, viewModel: FeedViewModel) {
@@ -33,6 +34,7 @@ struct VideoCard: View {
                     recipe: recipe,
                     viewModel: viewModel,
                     bookmarksViewModel: bookmarksViewModel,
+                    showingAssistant: $showingAssistant,
                     onDetailsPressed: {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                             showingDetails = true
@@ -81,6 +83,9 @@ struct VideoCard: View {
             .presentationDragIndicator(.visible)
             .presentationDetents([.medium])
         }
+        .sheet(isPresented: $showingAssistant) {
+            RecipeAssistantView(recipe: recipe)
+        }
         .task {
             bookmarksViewModel.loadCollections()
         }
@@ -91,6 +96,7 @@ private struct RecipeOverlay: View {
     let recipe: Recipe
     @ObservedObject var viewModel: FeedViewModel
     @ObservedObject var bookmarksViewModel: BookmarksViewModel
+    @Binding var showingAssistant: Bool
     let onDetailsPressed: () -> Void
     let onCommentsPressed: () -> Void
     let onBookmarkPressed: () -> Void
@@ -109,6 +115,22 @@ private struct RecipeOverlay: View {
                     }
                     
                     Text("Recipe")
+                        .font(.caption)
+                        .bold()
+                        .foregroundColor(.white)
+                }
+                
+                // AI Assistant Button
+                VStack(spacing: 2) {
+                    Button(action: {
+                        showingAssistant = true
+                    }) {
+                        Image(systemName: "mic.circle")
+                            .font(.system(size: 24))
+                            .foregroundColor(.white)
+                    }
+                    
+                    Text("Assistant")
                         .font(.caption)
                         .bold()
                         .foregroundColor(.white)

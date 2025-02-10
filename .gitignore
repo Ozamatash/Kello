@@ -102,3 +102,6 @@ GoogleService-Info.plist
 
 # recipe dataset
 recipes/
+
+# OpenAI API key
+OpenAI-Info.plist
