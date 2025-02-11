@@ -175,7 +175,15 @@ class FirebaseService {
         // 2. Generate and upload thumbnail
         let thumbnailURL = try await generateAndUploadThumbnail(from: videoURL)
         
-        // 3. Create recipe document
+        // 3. Get nutritional information
+        let nutritionService = NutritionService.shared
+        let nutrition = try await nutritionService.analyzeRecipe(
+            title: title,
+            description: description,
+            ingredients: ingredients
+        )
+        
+        // 4. Create recipe document
         let recipeData: [String: Any] = [
             "title": title,
             "description": description,
@@ -191,14 +199,21 @@ class FirebaseService {
             "updatedAt": FieldValue.serverTimestamp(),
             "likes": 0,
             "comments": 0,
-            "shares": 0
+            "shares": 0,
+            // Add nutritional information
+            "calories": nutrition.calories,
+            "protein": nutrition.protein,
+            "carbs": nutrition.carbs,
+            "fat": nutrition.fat,
+            "servings": nutrition.servings,
+            "caloriesPerServing": nutrition.caloriesPerServing
         ]
         
         let docRef = try await config.firestore
             .collection("recipes")
             .addDocument(data: recipeData)
         
-        // 4. Return the created recipe
+        // 5. Return the created recipe
         return Recipe(
             id: docRef.documentID,
             title: title,
@@ -209,7 +224,13 @@ class FirebaseService {
             ingredients: ingredients,
             steps: steps,
             videoURL: videoDownloadURL,
-            thumbnailURL: thumbnailURL
+            thumbnailURL: thumbnailURL,
+            calories: nutrition.calories,
+            protein: nutrition.protein,
+            carbs: nutrition.carbs,
+            fat: nutrition.fat,
+            servings: nutrition.servings,
+            caloriesPerServing: nutrition.caloriesPerServing
         )
     }
     

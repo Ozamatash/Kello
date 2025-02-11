@@ -60,12 +60,40 @@ struct RecipeCard: View {
                     }
                     .font(.caption2)
                     .foregroundColor(.secondary)
+                    
+                    // Nutritional information
+                    if let calories = recipe.caloriesPerServing {
+                        HStack(spacing: 4) {
+                            Label {
+                                Text("\(calories) cal")
+                                    .lineLimit(1)
+                            } icon: {
+                                Image(systemName: "flame")
+                                    .imageScale(.small)
+                            }
+                            
+                            if let servings = recipe.servings {
+                                Text("·")
+                                Text("\(servings) serv")
+                                    .lineLimit(1)
+                            }
+                            
+                            Spacer(minLength: 4)
+                            
+                            // AI indicator
+                            Image(systemName: "sparkles")
+                                .imageScale(.small)
+                                .foregroundStyle(.secondary.opacity(0.7))
+                        }
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    }
                 }
-                .frame(height: 70)
+                .frame(height: 90)  // Increased height to accommodate new line
                 .padding(8)
             }
         }
-        .frame(width: 160, height: 170)
+        .frame(width: 160, height: 190)  // Increased total height
         .background {
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color(.secondarySystemGroupedBackground))

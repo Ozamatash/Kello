@@ -27,6 +27,8 @@ class Recipe: Identifiable, Equatable {
     var protein: Double?
     var carbs: Double?
     var fat: Double?
+    var servings: Int?
+    var caloriesPerServing: Int?
     
     // Vector Search fields
     var embedding: [Double]?
@@ -64,6 +66,8 @@ class Recipe: Identifiable, Equatable {
          protein: Double? = nil,
          carbs: Double? = nil,
          fat: Double? = nil,
+         servings: Int? = nil,
+         caloriesPerServing: Int? = nil,
          embedding: [Double]? = nil,
          embeddingStatus: String? = nil,
          isLikedByCurrentUser: Bool = false) {
@@ -87,7 +91,9 @@ class Recipe: Identifiable, Equatable {
         self.protein = protein
         self.carbs = carbs
         self.fat = fat
-        self.embedding = embedding
+        self.servings = servings
+        self.caloriesPerServing = caloriesPerServing
+        self.embedding = embedding  
         self.embeddingStatus = embeddingStatus
     }
 } 
