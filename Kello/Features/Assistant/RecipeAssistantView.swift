@@ -54,10 +54,8 @@ struct RecipeAssistantView: View {
             .navigationTitle("Cooking Assistant")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
-                        dismiss()
-                    }
+                ToolbarItem(placement: .topBarTrailing) {
+                    EmptyView()
                 }
             }
         }
@@ -73,10 +71,6 @@ struct RecipeAssistantView: View {
             Text(recipe.title)
                 .font(.title2)
                 .fontWeight(.bold)
-            
-            Text(recipe.recipeDescription)
-                .font(.body)
-                .foregroundColor(.secondary)
             
             HStack(spacing: 16) {
                 Label("\(recipe.cookingTime)m", systemImage: "clock")
@@ -163,36 +157,24 @@ struct RecipeAssistantView: View {
                             .frame(width: 48, height: 48)
                         
                         if viewModel.isRecording {
-                            // Recording animation
-                            TimelineView(.animation(minimumInterval: 0.1)) { _ in
-                                Canvas { context, size in
-                                    let width = size.width * 0.6
-                                    let height = size.height * 0.6
-                                    let centerX = size.width / 2
-                                    let centerY = size.height / 2
-                                    
-                                    for i in 0..<8 {
-                                        let angle = Double(i) * .pi / 4
-                                        let x = centerX + cos(angle) * width / 2
-                                        let y = centerY + sin(angle) * height / 2
-                                        
-                                        var path = Path()
-                                        path.addEllipse(in: CGRect(x: x - 1.5, y: y - 1.5, width: 3, height: 3))
-                                        
-                                        context.fill(
-                                            path,
-                                            with: .color(.white.opacity(
-                                                sin(Date().timeIntervalSinceReferenceDate * 2 + Double(i)) * 0.5 + 0.5
-                                            ))
-                                        )
-                                    }
-                                }
+                            // Recording animation using SwiftUI circles
+                            ForEach(0..<8) { index in
+                                Circle()
+                                    .fill(.white)
+                                    .frame(width: 3, height: 3)
+                                    .offset(
+                                        x: 16 * cos(Double(index) * .pi / 4),
+                                        y: 16 * sin(Double(index) * .pi / 4)
+                                    )
+                                    .opacity(
+                                        sin(Date().timeIntervalSinceReferenceDate * 2 + Double(index)) * 0.5 + 0.5
+                                    )
                             }
-                            .frame(width: 48, height: 48)
+                            .animation(.linear(duration: 1).repeatForever(autoreverses: false), value: viewModel.isRecording)
                         } else {
                             Image(systemName: "mic.fill")
                                 .font(.system(size: 20))
-                                .foregroundColor(Color(.systemGray))
+                                .foregroundColor(.primary)
                         }
                     }
                 }
@@ -211,13 +193,14 @@ struct RecipeAssistantView: View {
                         
                         Image(systemName: "xmark")
                             .font(.system(size: 20))
-                            .foregroundColor(Color(.systemGray))
+                            .foregroundColor(.primary)
                     }
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.vertical, 12)
+            .padding(.vertical, 4)
         }
+        .frame(maxHeight: viewModel.isProcessing ? 120 : 60)
         .background(Color(.systemBackground))
     }
 }
@@ -252,8 +235,8 @@ struct GradientBallView: View {
                 .frame(width: 80, height: 80)
                 .blur(radius: 1)
         }
-        .frame(maxHeight: .infinity, alignment: .bottom)
-        .padding(.bottom, 80) // Position it above the buttons
+        .frame(width: 80, height: 80)
+        .padding(.bottom, 8)
         .onAppear {
             withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
                 rotation = 360

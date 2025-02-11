@@ -170,13 +170,15 @@ struct VideoPlayerView: View {
     let videoURL: String
     let isVisible: Bool
     let shouldLoop: Bool
+    let onViewModelCreated: (VideoPlayerViewModel) -> Void
 
     @StateObject private var viewModel: VideoPlayerViewModel
 
-    init(videoURL: String, isVisible: Bool, shouldLoop: Bool = true) {
+    init(videoURL: String, isVisible: Bool, shouldLoop: Bool = true, onViewModelCreated: @escaping (VideoPlayerViewModel) -> Void = { _ in }) {
         self.videoURL = videoURL
         self.isVisible = isVisible
         self.shouldLoop = shouldLoop
+        self.onViewModelCreated = onViewModelCreated
         _viewModel = StateObject(wrappedValue: VideoPlayerViewModel(url: videoURL, shouldLoop: shouldLoop, isVisible: isVisible))
     }
 
@@ -206,6 +208,7 @@ struct VideoPlayerView: View {
         .onAppear {
             Task {
                 await viewModel.preparePlayer()
+                onViewModelCreated(viewModel)
             }
         }
         .onChange(of: isVisible) { _, newValue in

@@ -11,6 +11,7 @@ struct VideoCard: View {
     @State private var showingBookmarkOptions = false
     @State private var showingAssistant = false
     @StateObject private var bookmarksViewModel = BookmarksViewModel()
+    @State private var videoPlayerViewModel: VideoPlayerViewModel?
     
     init(recipe: Recipe, isVisible: Bool, nextVideoURL: String?, viewModel: FeedViewModel) {
         self.recipe = recipe
@@ -25,7 +26,10 @@ struct VideoCard: View {
                 // Video Player
                 VideoPlayerView(
                     videoURL: recipe.videoURL,
-                    isVisible: isVisible
+                    isVisible: isVisible,
+                    onViewModelCreated: { viewModel in
+                        videoPlayerViewModel = viewModel
+                    }
                 )
                 .frame(width: geometry.size.width, height: geometry.size.height)
                 
@@ -85,6 +89,14 @@ struct VideoCard: View {
         }
         .sheet(isPresented: $showingAssistant) {
             RecipeAssistantView(recipe: recipe)
+                .onAppear {
+                    videoPlayerViewModel?.pause()
+                }
+                .onDisappear {
+                    if isVisible {
+                        videoPlayerViewModel?.play()
+                    }
+                }
         }
         .task {
             bookmarksViewModel.loadCollections()
