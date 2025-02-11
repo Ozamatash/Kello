@@ -90,6 +90,7 @@ class RecipeAssistantViewModel: NSObject, ObservableObject {
     
     @Published var messages: [AssistantMessage] = []
     @Published var isRecording = false
+    @Published var isProcessing = false
     @Published var showError = false
     @Published var errorMessage = ""
     
@@ -136,6 +137,7 @@ class RecipeAssistantViewModel: NSObject, ObservableObject {
     func stopRecording() {
         audioRecorder?.stop()
         isRecording = false
+        isProcessing = true
         
         // Process the recording
         processRecording()
@@ -285,6 +287,7 @@ extension RecipeAssistantViewModel: AVAudioPlayerDelegate {
         if !flag {
             handleError("Audio playback did not complete successfully")
         }
+        isProcessing = false
     }
     
     func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {

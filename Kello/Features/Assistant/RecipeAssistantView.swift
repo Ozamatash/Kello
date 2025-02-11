@@ -48,24 +48,8 @@ struct RecipeAssistantView: View {
                 
                 Divider()
                 
-                // Assistant Interface
-                VStack(spacing: 0) {
-                    if !viewModel.messages.isEmpty {
-                        ScrollView {
-                            LazyVStack(alignment: .leading, spacing: 12) {
-                                ForEach(viewModel.messages) { message in
-                                    MessageBubble(message: message)
-                                }
-                            }
-                            .padding()
-                        }
-                        .frame(maxHeight: 200)
-                        .background(Color(.systemGroupedBackground))
-                    }
-                    
-                    // Recording interface
-                    recordingInterface
-                }
+                // Recording Interface
+                recordingInterface
             }
             .navigationTitle("Cooking Assistant")
             .navigationBarTitleDisplayMode(.inline)
@@ -157,74 +141,122 @@ struct RecipeAssistantView: View {
     }
     
     private var recordingInterface: some View {
-        VStack(spacing: 16) {
+        ZStack {
+            // Processing animation (centered)
+            if viewModel.isProcessing {
+                GradientBallView()
+                    .transition(.opacity.combined(with: .scale))
+            }
+            
             HStack {
+                // Record button
                 Button {
-                    viewModel.isRecording ? viewModel.stopRecording() : viewModel.startRecording()
+                    if viewModel.isRecording {
+                        viewModel.stopRecording()
+                    } else {
+                        viewModel.startRecording()
+                    }
                 } label: {
                     ZStack {
                         Circle()
-                            .fill(viewModel.isRecording ? Color.red : Color.blue)
-                            .frame(width: 64, height: 64)
+                            .fill(viewModel.isRecording ? Color.blue : Color(.systemGray4))
+                            .frame(width: 48, height: 48)
                         
-                        Image(systemName: viewModel.isRecording ? "stop.fill" : "mic.fill")
-                            .font(.title2)
-                            .foregroundColor(.white)
-                    }
-                }
-                
-                if viewModel.isRecording {
-                    HStack(spacing: 4) {
-                        ForEach(0..<3) { _ in
-                            Circle()
-                                .fill(.blue)
-                                .frame(width: 8, height: 8)
-                                .opacity(0.8)
+                        if viewModel.isRecording {
+                            // Recording animation
+                            TimelineView(.animation(minimumInterval: 0.1)) { _ in
+                                Canvas { context, size in
+                                    let width = size.width * 0.6
+                                    let height = size.height * 0.6
+                                    let centerX = size.width / 2
+                                    let centerY = size.height / 2
+                                    
+                                    for i in 0..<8 {
+                                        let angle = Double(i) * .pi / 4
+                                        let x = centerX + cos(angle) * width / 2
+                                        let y = centerY + sin(angle) * height / 2
+                                        
+                                        var path = Path()
+                                        path.addEllipse(in: CGRect(x: x - 1.5, y: y - 1.5, width: 3, height: 3))
+                                        
+                                        context.fill(
+                                            path,
+                                            with: .color(.white.opacity(
+                                                sin(Date().timeIntervalSinceReferenceDate * 2 + Double(i)) * 0.5 + 0.5
+                                            ))
+                                        )
+                                    }
+                                }
+                            }
+                            .frame(width: 48, height: 48)
+                        } else {
+                            Image(systemName: "mic.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(Color(.systemGray))
                         }
                     }
-                    .transition(.opacity)
-                    .animation(
-                        .easeInOut(duration: 0.5)
-                        .repeatForever(),
-                        value: viewModel.isRecording
-                    )
-                } else {
-                    Text("Tap to ask a question")
-                        .foregroundColor(.secondary)
                 }
+                .animation(.easeInOut(duration: 0.2), value: viewModel.isRecording)
                 
                 Spacer()
+                
+                // Close button
+                Button {
+                    dismiss()
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(Color(.systemGray4))
+                            .frame(width: 48, height: 48)
+                        
+                        Image(systemName: "xmark")
+                            .font(.system(size: 20))
+                            .foregroundColor(Color(.systemGray))
+                    }
+                }
             }
-            .padding()
-            .background(Color(.systemGroupedBackground))
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
         }
+        .background(Color(.systemBackground))
     }
 }
 
-struct MessageBubble: View {
-    let message: AssistantMessage
+struct GradientBallView: View {
+    @State private var rotation: Double = 0
     
     var body: some View {
-        HStack {
-            if message.isUser {
-                Spacer()
-            }
+        ZStack {
+            // Gradient background
+            Circle()
+                .fill(
+                    AngularGradient(
+                        gradient: Gradient(colors: [
+                            Color.blue,
+                            Color.blue.opacity(0.7),
+                            Color.white,
+                            Color.blue.opacity(0.7),
+                            Color.blue
+                        ]),
+                        center: .center,
+                        startAngle: .degrees(rotation),
+                        endAngle: .degrees(rotation + 360)
+                    )
+                )
+                .frame(width: 80, height: 80)
+                .blur(radius: 15)
             
-            VStack(alignment: message.isUser ? .trailing : .leading, spacing: 4) {
-                Text(message.isUser ? "You" : "Assistant")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 12)
-                
-                Text(message.content)
-                    .padding(12)
-                    .background(message.isUser ? Color.blue : Color(.systemGray5))
-                    .foregroundColor(message.isUser ? .white : .primary)
-                    .cornerRadius(16)
-            }
-            
-            if !message.isUser {
-                Spacer()
+            // Overlay to create depth
+            Circle()
+                .fill(.ultraThinMaterial)
+                .frame(width: 80, height: 80)
+                .blur(radius: 1)
+        }
+        .frame(maxHeight: .infinity, alignment: .bottom)
+        .padding(.bottom, 80) // Position it above the buttons
+        .onAppear {
+            withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
+                rotation = 360
             }
         }
     }
