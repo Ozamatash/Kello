@@ -77,8 +77,10 @@ private struct ChatResponse: Codable {
     }
     
     struct AudioData: Codable {
+        let id: String
         let data: String
         let transcript: String?
+        let expires_at: TimeInterval?
     }
 }
 
@@ -87,6 +89,7 @@ class RecipeAssistantViewModel: NSObject, ObservableObject {
     private let recipe: Recipe
     private var audioRecorder: AVAudioRecorder?
     private var audioPlayer: AVAudioPlayer?
+    private var conversationHistory: [ChatRequest.Message] = []
     
     @Published var messages: [AssistantMessage] = []
     @Published var isRecording = false
@@ -103,6 +106,16 @@ class RecipeAssistantViewModel: NSObject, ObservableObject {
         self.recipe = recipe
         super.init()
         setupAudioSession()
+        
+        // Add system message to conversation history
+        conversationHistory.append(.init(
+            role: "system",
+            content: .text("""
+                You are a friendly and helpful cooking assistant. The user is currently cooking: \(recipe.title).
+                Recipe steps: \(recipe.steps.enumerated().map { "\($0 + 1). \($1)" }.joined(separator: "\n"))
+                Ingredients: \(recipe.ingredients.joined(separator: ", "))
+                """)
+        ))
     }
     
     private func setupAudioSession() {
@@ -154,36 +167,25 @@ class RecipeAssistantViewModel: NSObject, ObservableObject {
                 let audioData = try Data(contentsOf: recordingURL)
                 let base64Audio = audioData.base64EncodedString()
                 
-                // Create request body
+                // Add user's audio message to conversation history
+                let userMessage = ChatRequest.Message(
+                    role: "user",
+                    content: .multipart([
+                        .init(
+                            type: "input_audio",
+                            text: nil,
+                            input_audio: .init(data: base64Audio, format: "wav")
+                        )
+                    ])
+                )
+                conversationHistory.append(userMessage)
+                
+                // Create request body with full conversation history
                 let request = ChatRequest(
                     model: "gpt-4o-mini-audio-preview",
                     modalities: ["text", "audio"],
                     audio: .init(voice: "nova", format: "wav"),
-                    messages: [
-                        .init(
-                            role: "system",
-                            content: .text("""
-                                You are a friendly and helpful cooking assistant. The user is currently cooking: \(recipe.title).
-                                Recipe steps: \(recipe.steps.enumerated().map { "\($0 + 1). \($1)" }.joined(separator: "\n"))
-                                Ingredients: \(recipe.ingredients.joined(separator: ", "))
-                                """)
-                        ),
-                        .init(
-                            role: "user",
-                            content: .multipart([
-                                .init(
-                                    type: "text",
-                                    text: "What is in this recording?",
-                                    input_audio: nil
-                                ),
-                                .init(
-                                    type: "input_audio",
-                                    text: nil,
-                                    input_audio: .init(data: base64Audio, format: "wav")
-                                )
-                            ])
-                        )
-                    ]
+                    messages: conversationHistory
                 )
                 
                 // Create URL request
@@ -214,6 +216,23 @@ class RecipeAssistantViewModel: NSObject, ObservableObject {
                 let chatResponse = try JSONDecoder().decode(ChatResponse.self, from: data)
                 
                 if let responseMessage = chatResponse.choices.first?.message {
+                    // Add assistant's response to conversation history with audio ID
+                    if let audioData = responseMessage.audio {
+                        conversationHistory.append(.init(
+                            role: "assistant",
+                            content: .multipart([
+                                .init(
+                                    type: "audio",
+                                    text: nil,
+                                    input_audio: ChatRequest.ContentPart.AudioData(
+                                        data: audioData.data,
+                                        format: "wav"
+                                    )
+                                )
+                            ])
+                        ))
+                    }
+                    
                     // Add user's transcribed message and assistant's response
                     if let transcript = responseMessage.audio?.transcript {
                         messages.append(AssistantMessage(content: transcript, isUser: true))
