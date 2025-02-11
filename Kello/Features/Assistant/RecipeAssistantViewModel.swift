@@ -213,7 +213,7 @@ class RecipeAssistantViewModel: NSObject, ObservableObject {
 
                 // Create request body
                 let request = ChatRequest(
-                    model: "gpt-4o-mini-audio-preview",
+                    model: "gpt-4o-mini-audio-preview-2024-12-17",
                     modalities: ["text", "audio"],
                     audio: .init(voice: "nova", format: "wav"),
                     messages: currentMessages
@@ -252,7 +252,9 @@ class RecipeAssistantViewModel: NSObject, ObservableObject {
                 if httpResponse.statusCode == 500 && retryCount < maxRetries {
                     // Server error, retry after a delay
                     try await Task.sleep(nanoseconds: UInt64(pow(2.0, Double(retryCount)) * 1_000_000_000)) // Exponential backoff
-                    conversationHistory.removeLast() // Remove the last message before retrying
+                    if !conversationHistory.isEmpty {
+                        conversationHistory.removeLast() // Remove the last message before retrying
+                    }
                     await processRecording(retryCount: retryCount + 1)
                     return
                 }
