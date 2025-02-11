@@ -59,7 +59,12 @@ struct RecipeAssistantView: View {
                 }
             }
         }
-        .alert("Error", isPresented: $viewModel.showError) {
+        .alert("Assistant Unavailable", isPresented: $viewModel.showError) {
+            if viewModel.canRetry {
+                Button("Try Again", role: .none) {
+                    viewModel.retryLastRequest()
+                }
+            }
             Button("OK", role: .cancel) {}
         } message: {
             Text(viewModel.errorMessage)

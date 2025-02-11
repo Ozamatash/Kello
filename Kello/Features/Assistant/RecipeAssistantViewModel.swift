@@ -21,42 +21,20 @@ private struct ChatRequest: Codable {
     
     struct Message: Codable {
         let role: String
-        let content: MessageContent
-    }
-    
-    enum MessageContent: Codable {
-        case text(String)
-        case multipart([ContentPart])
+        let content: [ContentPart]?  // Changed back to array of ContentPart for user messages
+        let audio: AudioConfig?
         
-        func encode(to encoder: Encoder) throws {
-            switch self {
-            case .text(let str):
-                var container = encoder.singleValueContainer()
-                try container.encode(str)
-            case .multipart(let parts):
-                var container = encoder.singleValueContainer()
-                try container.encode(parts)
-            }
-        }
-        
-        init(from decoder: Decoder) throws {
-            let container = try decoder.singleValueContainer()
-            if let str = try? container.decode(String.self) {
-                self = .text(str)
-            } else if let parts = try? container.decode([ContentPart].self) {
-                self = .multipart(parts)
-            } else {
-                throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid message content")
-            }
+        struct AudioConfig: Codable {
+            let id: String
         }
     }
     
     struct ContentPart: Codable {
         let type: String
         let text: String?
-        let input_audio: AudioData?
+        let input_audio: AudioInput?
         
-        struct AudioData: Codable {
+        struct AudioInput: Codable {
             let data: String
             let format: String
         }
@@ -68,6 +46,7 @@ private struct ChatResponse: Codable {
     
     struct Choice: Codable {
         let message: Message
+        let finish_reason: String
     }
     
     struct Message: Codable {
@@ -89,13 +68,17 @@ class RecipeAssistantViewModel: NSObject, ObservableObject {
     private let recipe: Recipe
     private var audioRecorder: AVAudioRecorder?
     private var audioPlayer: AVAudioPlayer?
+    private var lastAssistantAudioId: String? // Only store the ID, not the audio data
     private var conversationHistory: [ChatRequest.Message] = []
+    private let maxRetries = 3
     
     @Published var messages: [AssistantMessage] = []
     @Published var isRecording = false
     @Published var isProcessing = false
     @Published var showError = false
     @Published var errorMessage = ""
+    @Published var canRetry = false
+    @Published var lastRequestData: Data?
     
     private var recordingURL: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -108,14 +91,23 @@ class RecipeAssistantViewModel: NSObject, ObservableObject {
         setupAudioSession()
         
         // Add system message to conversation history
-        conversationHistory.append(.init(
-            role: "system",
-            content: .text("""
-                You are a friendly and helpful cooking assistant. The user is currently cooking: \(recipe.title).
-                Recipe steps: \(recipe.steps.enumerated().map { "\($0 + 1). \($1)" }.joined(separator: "\n"))
-                Ingredients: \(recipe.ingredients.joined(separator: ", "))
-                """)
-        ))
+        conversationHistory = [
+            .init(
+                role: "system",
+                content: [
+                    ChatRequest.ContentPart(
+                        type: "text",
+                        text: """
+                            You are a friendly and helpful cooking assistant. The user is currently cooking: \(recipe.title).
+                            Recipe steps: \(recipe.steps.enumerated().map { "\($0 + 1). \($1)" }.joined(separator: "\n"))
+                            Ingredients: \(recipe.ingredients.joined(separator: ", "))
+                            """,
+                        input_audio: nil
+                    )
+                ],
+                audio: nil
+            )
+        ]
     }
     
     private func setupAudioSession() {
@@ -156,9 +148,9 @@ class RecipeAssistantViewModel: NSObject, ObservableObject {
         processRecording()
     }
     
-    private func processRecording() {
+    private func processRecording(retryCount: Int = 0) {
         guard FileManager.default.fileExists(atPath: recordingURL.path) else {
-            handleError("Recording file not found")
+            handleError("Recording file not found", canRetry: false)
             return
         }
         
@@ -167,25 +159,64 @@ class RecipeAssistantViewModel: NSObject, ObservableObject {
                 let audioData = try Data(contentsOf: recordingURL)
                 let base64Audio = audioData.base64EncodedString()
                 
-                // Add user's audio message to conversation history
+                // Create user message with audio
                 let userMessage = ChatRequest.Message(
                     role: "user",
-                    content: .multipart([
-                        .init(
+                    content: [
+                        ChatRequest.ContentPart(
+                            type: "text",
+                            text: "What do you think about this?",
+                            input_audio: nil
+                        ),
+                        ChatRequest.ContentPart(
                             type: "input_audio",
                             text: nil,
-                            input_audio: .init(data: base64Audio, format: "wav")
+                            input_audio: .init(
+                                data: base64Audio,
+                                format: "wav"
+                            )
                         )
-                    ])
+                    ],
+                    audio: nil
                 )
-                conversationHistory.append(userMessage)
+
+                // Build conversation history for this request
+                var currentMessages = [
+                    ChatRequest.Message(
+                        role: "system",
+                        content: [
+                            ChatRequest.ContentPart(
+                                type: "text",
+                                text: """
+                                    You are a friendly and helpful cooking assistant. The user is currently cooking: \(recipe.title).
+                                    Recipe steps: \(recipe.steps.enumerated().map { "\($0 + 1). \($1)" }.joined(separator: "\n"))
+                                    Ingredients: \(recipe.ingredients.joined(separator: ", "))
+                                    """,
+                                input_audio: nil
+                            )
+                        ],
+                        audio: nil
+                    )
+                ]
                 
-                // Create request body with full conversation history
+                // If we have a previous audio response ID, include it
+                if let audioId = lastAssistantAudioId {
+                    currentMessages.append(.init(
+                        role: "assistant",
+                        content: nil,
+                        audio: .init(id: audioId)
+                    ))
+                }
+                
+                // Add the new user message
+                currentMessages.append(userMessage)
+
+                // Create request body
                 let request = ChatRequest(
                     model: "gpt-4o-mini-audio-preview",
                     modalities: ["text", "audio"],
                     audio: .init(voice: "nova", format: "wav"),
-                    messages: conversationHistory
+                    messages: currentMessages
                 )
                 
                 // Create URL request
@@ -193,69 +224,86 @@ class RecipeAssistantViewModel: NSObject, ObservableObject {
                 urlRequest.httpMethod = "POST"
                 urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
                 urlRequest.setValue("Bearer \(OpenAIConfig.apiKey)", forHTTPHeaderField: "Authorization")
-                urlRequest.httpBody = try JSONEncoder().encode(request)
+                let requestBody = try JSONEncoder().encode(request)
+                
+                // Log the request payload
+                let jsonString = createReadableJSON(requestBody)
+                print("\n=== Request Payload ===")
+                print(jsonString)
+                print("=====================\n")
+                
+                urlRequest.httpBody = requestBody
                 
                 print("Sending request to OpenAI...")
                 
                 // Make API call
                 let (data, response) = try await URLSession.shared.data(for: urlRequest)
                 
+                // Log the response payload
+                let responseString = createReadableJSON(data)
+                print("\n=== Response Payload ===")
+                print(responseString)
+                print("======================\n")
+                
                 guard let httpResponse = response as? HTTPURLResponse else {
                     throw NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
                 }
                 
+                if httpResponse.statusCode == 500 && retryCount < maxRetries {
+                    // Server error, retry after a delay
+                    try await Task.sleep(nanoseconds: UInt64(pow(2.0, Double(retryCount)) * 1_000_000_000)) // Exponential backoff
+                    conversationHistory.removeLast() // Remove the last message before retrying
+                    await processRecording(retryCount: retryCount + 1)
+                    return
+                }
+                
                 guard httpResponse.statusCode == 200 else {
-                    if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                        print("API Error: \(errorJson)")
+                    if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let error = errorJson["error"] as? [String: Any] {
+                        let errorMessage = error["message"] as? String ?? "Unknown error"
+                        let isServerError = httpResponse.statusCode == 500
+                        handleError("Assistant unavailable: \(errorMessage)", canRetry: isServerError)
                     }
                     throw NSError(domain: "", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "API error: \(httpResponse.statusCode)"])
                 }
                 
                 print("Got response from OpenAI")
                 
+                // Reset error state on successful response
+                showError = false
+                errorMessage = ""
+                canRetry = false
+                
                 let chatResponse = try JSONDecoder().decode(ChatResponse.self, from: data)
                 
                 if let responseMessage = chatResponse.choices.first?.message {
-                    // Add assistant's response to conversation history with audio ID
+                    // Only store the audio ID for future requests
                     if let audioData = responseMessage.audio {
-                        conversationHistory.append(.init(
-                            role: "assistant",
-                            content: .multipart([
-                                .init(
-                                    type: "audio",
-                                    text: nil,
-                                    input_audio: ChatRequest.ContentPart.AudioData(
-                                        data: audioData.data,
-                                        format: "wav"
-                                    )
-                                )
-                            ])
-                        ))
+                        lastAssistantAudioId = audioData.id // Store ID for next conversation turn
+                        
+                        // Play the current audio response
+                        if let audioBytes = Data(base64Encoded: audioData.data) {
+                            try audioBytes.write(to: recordingURL)
+                            await MainActor.run {
+                                playResponse()
+                            }
+                        }
+                        
+                        // Show transcript in UI if available
+                        if let transcript = audioData.transcript {
+                            messages.append(AssistantMessage(content: transcript, isUser: true))
+                        }
                     }
                     
-                    // Add user's transcribed message and assistant's response
-                    if let transcript = responseMessage.audio?.transcript {
-                        messages.append(AssistantMessage(content: transcript, isUser: true))
-                    }
-                    
+                    // Show text response in UI if available
                     if let content = responseMessage.content {
                         messages.append(AssistantMessage(content: content, isUser: false))
-                    }
-                    
-                    // Convert assistant's response to speech
-                    if let audioData = Data(base64Encoded: responseMessage.audio?.data ?? "") {
-                        print("Got audio data of size: \(audioData.count) bytes")
-                        try audioData.write(to: recordingURL)
-                        await MainActor.run {
-                            playResponse()
-                        }
-                    } else {
-                        print("No audio data in response")
                     }
                 }
             } catch {
                 await MainActor.run {
-                    handleError("Failed to process recording: \(error.localizedDescription)")
+                    let isServerError = (error as NSError).code == 500
+                    handleError("Unable to process response: \(error.localizedDescription)", canRetry: isServerError)
                 }
             }
         }
@@ -280,10 +328,70 @@ class RecipeAssistantViewModel: NSObject, ObservableObject {
         }
     }
     
-    private func handleError(_ message: String) {
+    func retryLastRequest() {
+        guard let _ = lastRequestData else { return }
+        showError = false
+        errorMessage = ""
+        canRetry = false
+        isProcessing = true
+        processRecording()
+    }
+    
+    private func handleError(_ message: String, canRetry: Bool = false) {
         print("Error: \(message)")
         errorMessage = message
         showError = true
+        self.canRetry = canRetry
+        isProcessing = false
+    }
+    
+    private func createReadableJSON(_ data: Data) -> String {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return "Could not parse JSON"
+        }
+        
+        var readableJson = json
+        
+        // Redact audio data in messages
+        if var messages = readableJson["messages"] as? [[String: Any]] {
+            for i in 0..<messages.count {
+                if var message = messages[i] as? [String: Any],
+                   var content = message["content"] as? [[String: Any]] {
+                    // Redact input_audio data in multipart content
+                    for j in 0..<content.count {
+                        if var part = content[j] as? [String: Any],
+                           let type = part["type"] as? String,
+                           type == "input_audio" {
+                            part["input_audio"] = ["data": "[AUDIO DATA REDACTED]", "format": "wav"]
+                            content[j] = part
+                        }
+                    }
+                    message["content"] = content
+                    messages[i] = message
+                }
+            }
+            readableJson["messages"] = messages
+        }
+        
+        // Redact response audio data
+        if var choices = readableJson["choices"] as? [[String: Any]] {
+            for i in 0..<choices.count {
+                if var choice = choices[i] as? [String: Any],
+                   var message = choice["message"] as? [String: Any],
+                   var audio = message["audio"] as? [String: Any],
+                   let _ = audio["data"] as? String {
+                    audio["data"] = "[AUDIO DATA REDACTED]"
+                    message["audio"] = audio
+                    choice["message"] = message
+                    choices[i] = choice
+                }
+            }
+            readableJson["choices"] = choices
+        }
+        
+        // Convert back to JSON string with pretty printing
+        let prettyJson = try? JSONSerialization.data(withJSONObject: readableJson, options: .prettyPrinted)
+        return String(data: prettyJson ?? data, encoding: .utf8) ?? "Could not format JSON"
     }
 }
 
