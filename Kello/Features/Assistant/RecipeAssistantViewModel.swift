@@ -44,7 +44,6 @@ class RecipeAssistantViewModel: ObservableObject {
                     }
                 }
                 
-                // Start handling voice interactions
                 try conversation?.startListening()
             } catch {
                 await handleError(error)
@@ -52,22 +51,21 @@ class RecipeAssistantViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Error Handling
-    
     private func handleError(_ error: Error) async {
-        await MainActor.run {
-            print("Error: \(error.localizedDescription)")
-            self.isConnected = false
-            self.errorMessage = error.localizedDescription
-            self.showError = true
-        }
+        print("Error: \(error.localizedDescription)")
+        self.isConnected = false
+        self.errorMessage = error.localizedDescription
+        self.showError = true
     }
     
     // MARK: - Cleanup
     
-    deinit {
+    func cleanup() {
         Task { @MainActor in
-            conversation?.stopListening()
+            // First stop voice handling
+            conversation?.stopHandlingVoice()
+            // Then null out the conversation reference
+            conversation = nil
         }
     }
 }

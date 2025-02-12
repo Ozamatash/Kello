@@ -89,6 +89,9 @@ struct RecipeAssistantView: View {
         } message: {
             Text(viewModel.errorMessage)
         }
+        .onDisappear {
+            viewModel.cleanup()
+        }
     }
     
     private var ingredientsCard: some View {
