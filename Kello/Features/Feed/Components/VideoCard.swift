@@ -137,9 +137,10 @@ private struct RecipeOverlay: View {
                     Button(action: {
                         showingAssistant = true
                     }) {
-                        Image(systemName: "mic.circle")
+                        Image(systemName: "mic")
                             .font(.system(size: 24))
                             .foregroundColor(.white)
+                            .symbolEffect(.bounce, value: showingAssistant)
                     }
                     
                     Text("Assistant")

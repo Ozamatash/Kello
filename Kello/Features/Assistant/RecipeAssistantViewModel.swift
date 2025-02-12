@@ -32,9 +32,19 @@ class RecipeAssistantViewModel: ObservableObject {
                     
                     try await self.conversation?.updateSession { session in
                         session.instructions = """
-                            You are a friendly cooking assistant. The current recipe is \(self.recipe.title).
-                            Ingredients: \(self.recipe.ingredients.joined(separator: ", ")).
-                            Steps: \(self.recipe.steps.enumerated().map { "\($0 + 1). \($1)" }.joined(separator: " "))
+                            You are an expert cooking assistant helping with: \(self.recipe.title).
+                            
+                            CONTEXT:
+                            - Ingredients: \(self.recipe.ingredients.joined(separator: ", "))
+                            - Steps: \(self.recipe.steps.enumerated().map { "\($0 + 1). \($1)" }.joined(separator: " "))
+                            
+                            GUIDELINES:
+                            - Prioritize clarity and practicality in your responses
+                            - Adapt your level of detail based on the user's needs
+                            - Share relevant cooking wisdom and tips when appropriate
+                            - Help troubleshoot and suggest alternatives if needed
+                            - Keep responses concise and to the point
+                            
                             """
                         session.voice = .alloy
                         session.inputAudioTranscription = .init()
@@ -42,7 +52,7 @@ class RecipeAssistantViewModel: ObservableObject {
                         // Configure turn detection with faster response time
                         session.turnDetection = .init(
                             type: .serverVad,
-                            threshold: 0.7,        // Keep high threshold for noise resistance
+                            threshold: 0.8,        // Keep high threshold for noise resistance
                             createResponse: true
                         )
                     }

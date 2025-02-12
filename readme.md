@@ -20,9 +20,9 @@ Kello is designed for culinary enthusiasts who want to explore recipe videos in 
 
 ### AI-Powered Features
 - **Smart Recipe Assistant:**
-  - Voice-controlled cooking guidance
+  - Real-time voice-controlled cooking guidance
   - Step-by-step instructions with hands-free navigation
-  - Real-time ingredient substitution suggestions
+  - Ingredient substitution suggestions
   - Cooking technique explanations
   - Interactive Q&A during cooking
 - **AI Nutritional Analysis:**

@@ -1,124 +1,192 @@
 import SwiftUI
 
+// MARK: - Design System
+
+private enum AuthTheme {
+    static let primaryColor = Color.accentColor
+    static let errorColor = Color.red
+    static let successColor = Color.green
+    static let textFieldBackground = Color(.systemBackground)
+    static let borderColor = Color(.systemGray4)
+    static let shadowColor = Color.black.opacity(0.05)
+    
+    static let cornerRadius: CGFloat = 12
+    static let buttonHeight: CGFloat = 56
+    static let iconSize: CGFloat = 20
+    static let spacing: CGFloat = 20
+}
+
+// MARK: - Text Field
+
 struct AuthTextField: View {
     let title: String
     let text: Binding<String>
     let icon: String
     var isSecure: Bool = false
+    @State private var isEditing = false
+    @State private var showPassword = false
     
     var body: some View {
-        Group {
-            if isSecure {
-                SecureField(title, text: text)
-            } else {
-                TextField(title, text: text)
+        VStack(alignment: .leading, spacing: 8) {
+            // Field label
+            Text(title)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 4)
+            
+            // Text field container
+            HStack(spacing: 12) {
+                // Leading icon
+                Image(systemName: icon)
+                    .font(.system(size: AuthTheme.iconSize))
+                    .foregroundColor(isEditing ? AuthTheme.primaryColor : .secondary)
+                
+                // Text input
+                Group {
+                    if isSecure {
+                        Group {
+                            if showPassword {
+                                TextField(title, text: text)
+                            } else {
+                                SecureField(title, text: text)
+                            }
+                        }
+                    } else {
+                        TextField(title, text: text)
+                    }
+                }
+                .textContentType(isSecure ? .oneTimeCode : .emailAddress)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                
+                // Trailing icon for password fields
+                if isSecure {
+                    Button {
+                        withAnimation {
+                            showPassword.toggle()
+                        }
+                    } label: {
+                        Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
+                            .font(.system(size: AuthTheme.iconSize - 2))
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .frame(height: AuthTheme.buttonHeight)
+            .padding(.horizontal, 16)
+            .background(AuthTheme.textFieldBackground)
+            .cornerRadius(AuthTheme.cornerRadius)
+            .overlay {
+                RoundedRectangle(cornerRadius: AuthTheme.cornerRadius)
+                    .stroke(isEditing ? AuthTheme.primaryColor : AuthTheme.borderColor, lineWidth: 1)
+            }
+            .shadow(color: AuthTheme.shadowColor, radius: 8, y: 4)
+        }
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isEditing = true
             }
         }
-        .textFieldStyle(.plain)
-        .padding()
-        .background {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color(.systemGray6))
-        }
-        .overlay(alignment: .leading) {
-            Image(systemName: icon)
-                .foregroundColor(.gray)
-                .padding(.leading)
-        }
-        .padding(.horizontal)
     }
 }
+
+// MARK: - Button
 
 struct AuthButton: View {
     let title: String
     let action: () -> Void
     var isLoading: Bool = false
     var style: ButtonStyle = .primary
+    @Environment(\.isEnabled) private var isEnabled
     
     enum ButtonStyle {
-        case primary
-        case secondary
+        case primary, secondary
         
         var backgroundColor: Color {
             switch self {
-            case .primary:
-                return .accentColor
-            case .secondary:
-                return .white
+            case .primary: return .accentColor
+            case .secondary: return .white
             }
         }
         
         var foregroundColor: Color {
             switch self {
-            case .primary:
-                return .white
-            case .secondary:
-                return .accentColor
-            }
-        }
-        
-        var borderColor: Color {
-            switch self {
-            case .primary:
-                return .clear
-            case .secondary:
-                return .accentColor
+            case .primary: return .white
+            case .secondary: return .accentColor
             }
         }
     }
     
     var body: some View {
         Button(action: action) {
-            ZStack {
+            HStack(spacing: 12) {
                 if isLoading {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: style.foregroundColor))
-                } else {
-                    Text(title)
-                        .fontWeight(.semibold)
+                        .scaleEffect(0.8)
                 }
+                
+                Text(title)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                    .contentTransition(.opacity)
+                    .opacity(isLoading ? 0.5 : 1)
             }
             .frame(maxWidth: .infinity)
-            .padding()
-            .background(style.backgroundColor)
-            .foregroundColor(style.foregroundColor)
-            .cornerRadius(10)
-            .overlay {
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(style.borderColor, lineWidth: 1)
+            .frame(height: AuthTheme.buttonHeight)
+            .background {
+                RoundedRectangle(cornerRadius: AuthTheme.cornerRadius, style: .continuous)
+                    .fill(style.backgroundColor)
+                    .opacity(isEnabled ? 1 : 0.5)
             }
+            .overlay {
+                if style == .secondary {
+                    RoundedRectangle(cornerRadius: AuthTheme.cornerRadius)
+                        .stroke(AuthTheme.primaryColor, lineWidth: 1)
+                }
+            }
+            .foregroundColor(style.foregroundColor)
+            .shadow(color: style == .primary ? AuthTheme.primaryColor.opacity(0.3) : .clear, 
+                   radius: 8, y: 4)
         }
+        .buttonStyle(.plain)
         .disabled(isLoading)
-        .padding(.horizontal)
     }
 }
+
+// MARK: - Error View
 
 struct ErrorView: View {
     let error: Error
     
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundColor(.red)
+                .font(.system(size: AuthTheme.iconSize))
+                .foregroundColor(AuthTheme.errorColor)
+            
             Text(error.localizedDescription)
-                .font(.caption)
-                .foregroundColor(.red)
+                .font(.subheadline)
+                .foregroundColor(AuthTheme.errorColor)
+                .multilineTextAlignment(.leading)
         }
-        .padding(.horizontal)
+        .padding(16)
+        .background(AuthTheme.errorColor.opacity(0.1))
+        .cornerRadius(AuthTheme.cornerRadius)
     }
 }
 
 #Preview {
-    VStack(spacing: 20) {
+    VStack(spacing: AuthTheme.spacing) {
         AuthTextField(
             title: "Email",
-            text: .constant(""),
+            text: .constant("user@example.com"),
             icon: "envelope"
         )
         
         AuthTextField(
             title: "Password",
-            text: .constant(""),
+            text: .constant("password123"),
             icon: "lock",
             isSecure: true
         )
@@ -135,7 +203,9 @@ struct ErrorView: View {
             style: .secondary
         )
         
-        ErrorView(error: NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid email address"]))
+        ErrorView(error: NSError(domain: "", code: -1, 
+                               userInfo: [NSLocalizedDescriptionKey: "Invalid email or password. Please try again."]))
     }
-    .padding()
+    .padding(24)
+    .background(Color(.systemGroupedBackground))
 } 
