@@ -57,16 +57,6 @@ struct ContentView: View {
             // Debug controls - only visible in debug builds
             VStack(spacing: 20) {
                 Button(action: {
-                    PopulateTestData.populateTestData()
-                }) {
-                    Text("Reset Data")
-                        .foregroundColor(.white)
-                        .padding()
-                        .background(Color.blue)
-                        .cornerRadius(10)
-                }
-                
-                Button(action: {
                     VideoCache.shared.clearCache()
                 }) {
                     Text("Clear Video Cache")

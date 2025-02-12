@@ -93,7 +93,7 @@ class Recipe: Identifiable, Equatable {
         self.fat = fat
         self.servings = servings
         self.caloriesPerServing = caloriesPerServing
-        self.embedding = embedding  
+        self.embedding = embedding
         self.embeddingStatus = embeddingStatus
     }
 } 

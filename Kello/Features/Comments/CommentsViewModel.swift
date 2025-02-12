@@ -7,6 +7,10 @@ class CommentsViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var error: Error?
     
+    var canPost: Bool {
+        !newCommentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    
     private let recipeId: String
     private let firebaseService: FirebaseService
     
