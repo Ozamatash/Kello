@@ -1,6 +1,7 @@
 import Foundation
 import OpenAI
 import SwiftUI
+import AVFoundation
 
 @MainActor
 class RecipeAssistantViewModel: ObservableObject {
@@ -14,12 +15,32 @@ class RecipeAssistantViewModel: ObservableObject {
     @Published var isMuted = false
     
     private var conversation: Conversation?
+    private var previousCategory: AVAudioSession.Category?
+    private var previousMode: AVAudioSession.Mode?
+    private var previousOptions: AVAudioSession.CategoryOptions?
     
     // MARK: - Initialization
     
     init(recipe: Recipe) {
         self.recipe = recipe
+        setupAudioSession()
         setupConversation()
+    }
+    
+    private func setupAudioSession() {
+        let audioSession = AVAudioSession.sharedInstance()
+        do {
+            // Store previous configuration
+            previousCategory = audioSession.category
+            previousMode = audioSession.mode
+            previousOptions = audioSession.categoryOptions
+            
+            // Configure for voice chat
+            try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .defaultToSpeaker])
+            try audioSession.setActive(true)
+        } catch {
+            print("Failed to set up audio session: \(error)")
+        }
     }
     
     private func setupConversation() {
@@ -95,6 +116,22 @@ class RecipeAssistantViewModel: ObservableObject {
             conversation?.stopHandlingVoice()
             // Then null out the conversation reference
             conversation = nil
+            
+            // Restore previous audio session
+            let audioSession = AVAudioSession.sharedInstance()
+            do {
+                if let category = previousCategory,
+                   let mode = previousMode,
+                   let options = previousOptions {
+                    try audioSession.setCategory(category, mode: mode, options: options)
+                } else {
+                    // Default to playback if no previous configuration
+                    try audioSession.setCategory(.playback)
+                }
+                try audioSession.setActive(true)
+            } catch {
+                print("Failed to restore audio session: \(error)")
+            }
         }
     }
 }

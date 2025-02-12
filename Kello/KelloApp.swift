@@ -53,8 +53,10 @@ struct KelloApp: App {
                     ContentView()
                         .environmentObject(authViewModel)
                 } else {
-                    SignInView()
-                        .environmentObject(authViewModel)
+                    NavigationStack {
+                        SignInView()
+                            .environmentObject(authViewModel)
+                    }
                 }
             }
             .modelContainer(sharedModelContainer)

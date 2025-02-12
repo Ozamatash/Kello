@@ -76,9 +76,6 @@ struct RecipeAssistantView: View {
         } message: {
             Text(viewModel.errorMessage)
         }
-        .onDisappear {
-            viewModel.cleanup()
-        }
     }
     
     private var ingredientsCard: some View {
@@ -184,6 +181,7 @@ struct RecipeAssistantView: View {
                 
                 // Close button
                 Button {
+                    viewModel.cleanup()
                     dismiss()
                 } label: {
                     ZStack {
