@@ -6,39 +6,74 @@ Kello is a native iOS application designed as a cooking-focused social video pla
 
 ## Overview
 
-Kello is designed for culinary enthusiasts who want to explore recipe videos in a fun, swipe-driven interface. Initially focusing on a seamless video feed and robust discovery tools, the platform provides the foundation for community engagement and advanced AI-powered features in later phases.
+Kello is designed for culinary enthusiasts who want to explore recipe videos in a fun, swipe-driven interface. The platform combines social video features with powerful AI-driven assistance to create a comprehensive cooking companion app.
 
 ---
 
 ## Features
 
-### Core Video Feed
-- **Vertical Swiping:** Swipe between recipe videos with smooth transitions.
-- **Auto-Playback:** Videos auto-play as they enter the user's view, with minimal buffering.
-- **Engagement Metrics:** Each video displays likes, comments, shares, and recipe details.
-- **Infinite Scrolling & Pagination:** Efficient loading and recycling of video cards to maintain performance.
+### Core Video Experience
+- **Vertical Swiping:** Swipe between recipe videos with smooth transitions
+- **Auto-Playback:** Videos auto-play as they enter the user's view, with minimal buffering
+- **Engagement Metrics:** Each video displays likes, comments, shares, and recipe details
+- **Infinite Scrolling & Pagination:** Efficient loading and recycling of video cards to maintain performance
 
-### Recipe Creation
-- **Video Upload:** Select and upload recipe videos directly from your device's camera roll.
-- **Recipe Details:** Add comprehensive recipe information including title, description, cooking time, cuisine type, and meal type.
-- **Ingredients & Steps:** Dynamic input fields for adding ingredients and step-by-step cooking instructions.
-- **Form Validation:** Real-time validation ensures all required information is provided before submission.
-- **Progress Feedback:** Visual feedback during the upload process with loading indicators.
+### AI-Powered Features
+- **Smart Recipe Assistant:**
+  - Voice-controlled cooking guidance
+  - Step-by-step instructions with hands-free navigation
+  - Real-time ingredient substitution suggestions
+  - Cooking technique explanations
+  - Interactive Q&A during cooking
+- **AI Nutritional Analysis:**
+  - Automatic nutritional information generation
+  - Per-serving calculations for calories, protein, carbs, and fat
+  - Smart portion size estimation
+  - Detailed nutritional breakdown for each recipe
+- **Semantic Search & Discovery:**
+  - Natural language recipe search
+  - Intelligent ingredient-based matching
+  - Context-aware recipe recommendations
+  - Vector-based similarity search
 
-### Content Filtering & Discovery
-- **Filter Recipes:** Users can filter videos by cooking time ranges (e.g., under 15 min, 15–30 min, etc.), cuisine types, and meal types.
-- **Semantic Search:** Natural language search capability leveraging vector search (based on cosine similarity) across recipe data.
-- **Grid-Based Discovery:** Modern grid layout for exploring recipes with dynamic filter chips and clear visual feedback for active filters.
+### Recipe Creation & Management
+- **Video Upload & Processing:**
+  - Direct video upload from device
+  - Background video processing
+  - Automatic thumbnail generation
+  - Progress tracking and status updates
+- **Recipe Details:**
+  - Comprehensive recipe information input
+  - Dynamic ingredient and step management
+  - Cuisine and meal type categorization
+  - Cooking time and difficulty settings
+- **Form Validation:** Real-time validation ensures all required information is provided
+- **Progress Feedback:** Visual feedback during the upload process
 
-### Recipe Details & Bookmarking
-- **Detailed Recipe View:** Comprehensive recipe information including ingredients, step-by-step instructions, nutritional info, and more.
-- **Like-Based Bookmarking:** Easily save and organize your favorite recipes. Liked recipes persist across app sessions and are accessible through the profile tab.
-- **Local Data Management:** SwiftData integration for caching and offline support.
+### Content Discovery
+- **Smart Filtering:** Filter by cooking time, cuisine type, meal type, and nutritional preferences
+- **Grid-Based Discovery:** Modern grid layout with dynamic filter chips
+- **Personalized Recommendations:** Based on user preferences and interaction history
 
-### Community Engagement
-- **User Authentication:** Seamless sign-up, sign-in, and password reset via Firebase Authentication.
-- **Comments & Ratings:** Allow users to comment on and rate videos to foster community interaction.
-- **Social Sharing:** Share recipes to external social platforms with ease.
+### Recipe Details & Organization
+- **Interactive Recipe View:**
+  - Step-by-step instructions
+  - Ingredient checklist
+  - AI-generated nutritional information
+  - Voice-controlled navigation
+- **Smart Bookmarking:**
+  - Like-based recipe saving
+  - Custom collections
+  - Offline access to saved recipes
+- **Local Data Management:** SwiftData integration for efficient caching
+
+### Community Features
+- **User Authentication:** Seamless Firebase Authentication integration
+- **Social Interaction:**
+  - Rich commenting system
+  - Recipe ratings and reviews
+  - User profiles and following
+- **Content Sharing:** Share recipes across social platforms
 
 ---
 
@@ -47,16 +82,23 @@ Kello is designed for culinary enthusiasts who want to explore recipe videos in 
 - **Mobile Development:**  
   - **Language:** Swift  
   - **Framework:** SwiftUI  
-  - **Architecture:** MVVM (Model-View-ViewModel); clean separation of concerns for UI, business logic, and data operations.  
+  - **Architecture:** MVVM with clean architecture principles
 
-- **Local Data Persistence:**  
-  - **SwiftData:** For efficient, local storage of user and recipe data.
+- **AI & Machine Learning:**
+  - **OpenAI Integration:** For recipe assistance and nutritional analysis
+  - **Natural Language Processing:** For voice commands and semantic search
+  - **Vector Search:** For intelligent recipe discovery
 
-- **Backend & Cloud Services (Firebase):**  
-  - **Firebase Authentication:** Secure user authentication and session management.
-  - **Cloud Firestore:** Real-time database for recipe data, filtering, and community features.
-  - **Firebase Storage:** Hosting video files and recipe thumbnails.
-  - **Firebase Functions & VectorSearch :** For semantic search
+- **Local Data:**  
+  - **SwiftData:** Efficient local data persistence
+  - **AVFoundation:** Video processing and playback
+
+- **Backend Services:**
+  - **Firebase Authentication:** User management
+  - **Cloud Firestore:** Real-time database
+  - **Firebase Storage:** Media file hosting
+  - **Firebase Functions:** Serverless operations
+  - **Vector Search:** Semantic recipe search
 
 ---
 
@@ -68,15 +110,13 @@ Kello is designed for culinary enthusiasts who want to explore recipe videos in 
    cd Kello
    ```
 
-2. **Open the Project:**
-   - Open `Kello.xcodeproj` in Xcode.
+2. **Configuration Files:**
+   - Add `GoogleService-Info.plist` for Firebase configuration
+   - Add `OpenAI-Info.plist` with your OpenAI API key
 
-3. **Firebase Setup:**
-   - Ensure you have a valid Firebase project.
-   - Place your `GoogleService-Info.plist` in the project's Resources (it is already handled in the `.gitignore`).
-   - The Firebase configuration is handled in `FirebaseConfig.swift`.
-
-4. **Build & Run:**
-   - Select the appropriate target (simulator or device) and run the application.
+3. **Open & Run:**
+   - Open `Kello.xcodeproj` in Xcode
+   - Select your target device/simulator
+   - Build and run the application
 
 ---
