@@ -37,19 +37,6 @@ struct RecipeAssistantView: View {
                     
                     Divider()
                     
-                    // Connection status
-                    if !viewModel.isConnected {
-                        Text("Connecting to assistant...")
-                            .foregroundColor(.secondary)
-                            .padding(.vertical, 8)
-                    } else {
-                        Text("Listening... Just speak!")
-                            .foregroundColor(.green)
-                            .padding(.vertical, 8)
-                    }
-                    
-                    Divider()
-                    
                     // Recipe content
                     ScrollView {
                         VStack(spacing: 24) {
@@ -138,29 +125,29 @@ struct RecipeAssistantView: View {
             // Content
             VStack(alignment: .leading, spacing: 16) {
                 ForEach(Array(recipe.steps.enumerated()), id: \.offset) { index, step in
-                    HStack(alignment: .top, spacing: 16) {
-                        Button {
-                            if completedSteps.contains(index) {
-                                completedSteps.remove(index)
-                            } else {
-                                completedSteps.insert(index)
-                                let generator = UIImpactFeedbackGenerator(style: .medium)
-                                generator.impactOccurred()
-                            }
-                        } label: {
+                    Button {
+                        if completedSteps.contains(index) {
+                            completedSteps.remove(index)
+                        } else {
+                            completedSteps.insert(index)
+                            let generator = UIImpactFeedbackGenerator(style: .medium)
+                            generator.impactOccurred()
+                        }
+                    } label: {
+                        HStack(alignment: .top, spacing: 16) {
                             Image(systemName: completedSteps.contains(index) ? "checkmark.circle.fill" : "circle")
                                 .foregroundColor(completedSteps.contains(index) ? .green : .secondary)
                                 .font(.title3)
                                 .frame(width: 24, height: 24)
+                            
+                            Text(step)
+                                .strikethrough(completedSteps.contains(index))
+                                .foregroundColor(completedSteps.contains(index) ? .secondary : .primary)
+                                .font(.body)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .buttonStyle(.plain)
-                        
-                        Text(step)
-                            .strikethrough(completedSteps.contains(index))
-                            .foregroundColor(completedSteps.contains(index) ? .secondary : .primary)
-                            .font(.body)
-                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -178,6 +165,21 @@ struct RecipeAssistantView: View {
             
             // Main content
             HStack {
+                // Mute button
+                Button {
+                    viewModel.toggleMute()
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(Color(UIColor.secondarySystemGroupedBackground))
+                            .frame(width: 60, height: 60)
+                        
+                        Image(systemName: viewModel.isMuted ? "mic.slash.fill" : "mic.fill")
+                            .font(.system(size: 24))
+                            .foregroundColor(viewModel.isMuted ? .red : .primary)
+                    }
+                }
+                
                 Spacer()
                 
                 // Close button

@@ -11,6 +11,7 @@ class RecipeAssistantViewModel: ObservableObject {
     @Published var isConnected = false
     @Published var showError = false
     @Published var errorMessage = ""
+    @Published var isMuted = false
     
     private var conversation: Conversation?
     
@@ -37,6 +38,13 @@ class RecipeAssistantViewModel: ObservableObject {
                             """
                         session.voice = .alloy
                         session.inputAudioTranscription = .init()
+                        
+                        // Configure turn detection with faster response time
+                        session.turnDetection = .init(
+                            type: .serverVad,
+                            threshold: 0.7,        // Keep high threshold for noise resistance
+                            createResponse: true
+                        )
                     }
                     
                     await MainActor.run {
@@ -56,6 +64,17 @@ class RecipeAssistantViewModel: ObservableObject {
         self.isConnected = false
         self.errorMessage = error.localizedDescription
         self.showError = true
+    }
+    
+    // MARK: - Audio Control
+    
+    func toggleMute() {
+        isMuted.toggle()
+        if isMuted {
+            conversation?.stopListening()
+        } else {
+            try? conversation?.startListening()
+        }
     }
     
     // MARK: - Cleanup
