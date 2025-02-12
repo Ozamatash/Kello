@@ -37,6 +37,20 @@ struct RecipeAssistantView: View {
                     
                     Divider()
                     
+                    // Connection status
+                    if !viewModel.isConnected {
+                        Text("Connecting to assistant...")
+                            .foregroundColor(.secondary)
+                            .padding(.vertical, 8)
+                    } else {
+                        Text("Listening... Just speak!")
+                            .foregroundColor(.green)
+                            .padding(.vertical, 8)
+                    }
+                    
+                    Divider()
+                    
+                    // Recipe content
                     ScrollView {
                         VStack(spacing: 24) {
                             // Picker for steps/ingredients
@@ -55,7 +69,7 @@ struct RecipeAssistantView: View {
                             }
                         }
                         .padding(.vertical)
-                        .padding(.bottom, 100)
+                        .padding(.bottom, 140) // Extra padding for the assistant interface
                     }
                 }
                 .navigationBarTitleDisplayMode(.inline)
@@ -66,16 +80,11 @@ struct RecipeAssistantView: View {
                 }
             }
             
-            // Recording Interface
-            recordingInterface
+            // Assistant Interface
+            assistantInterface
                 .ignoresSafeArea()
         }
         .alert("Assistant Unavailable", isPresented: $viewModel.showError) {
-            if viewModel.canRetry {
-                Button("Try Again", role: .none) {
-                    viewModel.retryLastRequest()
-                }
-            }
             Button("OK", role: .cancel) {}
         } message: {
             Text(viewModel.errorMessage)
@@ -158,84 +167,14 @@ struct RecipeAssistantView: View {
         .padding(.horizontal)
     }
     
-    private var recordingInterface: some View {
+    private var assistantInterface: some View {
         ZStack {
-            // Processing animation (centered)
-            if viewModel.isProcessing {
-                GradientBallView()
-                    .transition(.opacity.combined(with: .scale))
-            }
+            // Always show the processing animation
+            GradientBallView()
+                .transition(.opacity.combined(with: .scale))
             
             // Main content
             HStack {
-                // Record button
-                Button {
-                    if viewModel.isRecording {
-                        viewModel.stopRecording()
-                    } else {
-                        viewModel.startRecording()
-                    }
-                } label: {
-                    ZStack {
-                        // Outer glow when recording
-                        if viewModel.isRecording {
-                            // Outer blue portal glow
-                            Circle()
-                                .fill(Color.blue.opacity(0.3))
-                                .frame(width: 80, height: 80)
-                                .blur(radius: 12)
-                            
-                            // Inner bright portal effect
-                            Circle()
-                                .fill(
-                                    RadialGradient(
-                                        gradient: Gradient(colors: [
-                                            .white,
-                                            .white.opacity(0.8),
-                                            .blue.opacity(0.3),
-                                            .clear
-                                        ]),
-                                        center: .center,
-                                        startRadius: 5,
-                                        endRadius: 35
-                                    )
-                                )
-                                .frame(width: 72, height: 72)
-                                .blur(radius: 3)
-                        }
-                        
-                        // Main button background
-                        Circle()
-                            .fill(viewModel.isRecording ? .white : Color(UIColor.secondarySystemGroupedBackground))
-                            .frame(width: 60, height: 60)
-                            .overlay {
-                                // Pulse animation when recording
-                                if viewModel.isRecording {
-                                    Circle()
-                                        .stroke(Color.white.opacity(0.5), lineWidth: 3)
-                                        .scaleEffect(1.5)
-                                        .opacity(0)
-                                        .animation(
-                                            .easeOut(duration: 1)
-                                            .repeatForever(autoreverses: false),
-                                            value: viewModel.isRecording
-                                        )
-                                }
-                            }
-                        
-                        // Microphone icon with animation
-                        Image(systemName: "mic.fill")
-                            .font(.system(size: 24))
-                            .foregroundColor(viewModel.isRecording ? .blue : .primary)
-                            .scaleEffect(viewModel.isRecording ? 1.1 : 1.0)
-                            .shadow(color: viewModel.isRecording ? .white.opacity(0.5) : .clear, 
-                                    radius: 4, x: 0, y: 0)
-                    }
-                    .animation(.spring(response: 0.35, dampingFraction: 0.7), value: viewModel.isRecording)
-                }
-                .opacity(viewModel.isProcessing ? 0 : 1)
-                .animation(.easeInOut, value: viewModel.isProcessing)
-                
                 Spacer()
                 
                 // Close button
@@ -256,7 +195,7 @@ struct RecipeAssistantView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
         }
-        .frame(maxHeight: viewModel.isProcessing ? 120 : 80)
+        .frame(height: 120)
         .background(
             Color(UIColor.systemBackground)
                 .edgesIgnoringSafeArea(.all)
