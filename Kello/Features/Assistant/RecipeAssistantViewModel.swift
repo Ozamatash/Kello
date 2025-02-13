@@ -13,11 +13,14 @@ class RecipeAssistantViewModel: ObservableObject {
     @Published var showError = false
     @Published var errorMessage = ""
     @Published var isMuted = false
+    @Published var isReconnecting = false
     
     private var conversation: Conversation?
     private var previousCategory: AVAudioSession.Category?
     private var previousMode: AVAudioSession.Mode?
     private var previousOptions: AVAudioSession.CategoryOptions?
+    private var setupRetryCount = 0
+    private let maxSetupRetries = 3
     
     // MARK: - Initialization
     
@@ -39,12 +42,18 @@ class RecipeAssistantViewModel: ObservableObject {
             try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .defaultToSpeaker])
             try audioSession.setActive(true)
         } catch {
-            print("Failed to set up audio session: \(error)")
+            handleError(error, context: "Audio Session Setup")
         }
     }
     
     private func setupConversation() {
-        conversation = Conversation(authToken: OpenAIConfig.apiKey)
+        guard setupRetryCount < maxSetupRetries else {
+            handleError(NSError(domain: "RecipeAssistant", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to setup conversation after multiple attempts"]), context: "Setup")
+            return
+        }
+        
+        setupRetryCount += 1
+        conversation = Conversation(authToken: OpenAIConfig.apiKey, model: "gpt-4o-mini-realtime-preview")
         
         Task {
             do {
@@ -80,20 +89,56 @@ class RecipeAssistantViewModel: ObservableObject {
                     
                     await MainActor.run {
                         self.isConnected = true
+                        self.setupRetryCount = 0  // Reset retry count on successful connection
+                    }
+                }
+                
+                // Monitor connection state
+                Task { [weak self] in
+                    guard let self = self else { return }
+                    while !Task.isCancelled {
+                        // Check connection state every second
+                        try? await Task.sleep(for: .seconds(1))
+                        
+                        await MainActor.run {
+                            if !self.isConnected {
+                                self.handleDisconnection()
+                            }
+                        }
                     }
                 }
                 
                 try conversation?.startListening()
             } catch {
-                await handleError(error)
+                await handleError(error, context: "Connection")
+                
+                // Attempt to retry setup after a delay
+                try? await Task.sleep(for: .seconds(2))
+                await MainActor.run {
+                    setupConversation()
+                }
             }
         }
     }
     
-    private func handleError(_ error: Error) async {
-        print("Error: \(error.localizedDescription)")
+    private func handleDisconnection() {
+        guard !isReconnecting else { return }
+        
+        isReconnecting = true
+        
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            setupConversation()
+            await MainActor.run {
+                isReconnecting = false
+            }
+        }
+    }
+    
+    private func handleError(_ error: Error, context: String) {
+        print("[\(context)] Error: \(error.localizedDescription)")
         self.isConnected = false
-        self.errorMessage = error.localizedDescription
+        self.errorMessage = "[\(context)] \(error.localizedDescription)"
         self.showError = true
     }
     
