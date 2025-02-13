@@ -135,8 +135,27 @@ final class DiscoverViewModel: ObservableObject {
             }
             
             error = nil
+        } catch let searchError as RecipeSearchError {
+            // Handle specific search errors
+            error = searchError
+            
+            // Log the error for analytics
+            print("🔍 Search failed with error: \(searchError.localizedDescription)")
+            
+            // Clear recipes only for certain errors
+            switch searchError {
+            case .invalidQuery, .embeddingGenerationFailed:
+                // Keep existing recipes for these errors
+                break
+            case .networkError, .serverOverloaded, .internalError:
+                // Clear recipes for server/network related errors
+                recipes = []
+            }
         } catch {
+            // Handle any other unexpected errors
             self.error = error
+            recipes = []
+            print("🔍 Unexpected search error: \(error.localizedDescription)")
         }
     }
     
